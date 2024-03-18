@@ -1,8 +1,8 @@
 from scenedetect import open_video, SceneManager, AdaptiveDetector
 from scenedetect.scene_manager import save_images
-from files_operations import finding_video_file
+from files_operations import find_video_file
 
-video_name = finding_video_file()
+video_name = find_video_file()
 
 
 def detecting_all_scenes():
@@ -38,7 +38,7 @@ def creating_scenes_pictures(scene_list):
             scene_list=scene_list,
             video=video,
             show_progress=True,
-            encoder_param=20,
+            encoder_param=50,
             output_dir="./Scene_pictures",
         )
 
