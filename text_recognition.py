@@ -1,0 +1,341 @@
+import sys
+import datetime
+import cv2
+from PIL import Image
+import pytesseract
+import numpy as np
+
+pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
+
+
+def convert_current_frame_to_tc(frame_number, fps):
+    frame_number = int(frame_number)
+    fps = int(fps)
+
+    hours = frame_number // (fps * 60 * 60)
+    frame_number %= fps * 60 * 60
+
+    minutes = frame_number // (fps * 60)
+    frame_number %= fps * 60
+
+    seconds = frame_number // fps
+    frames = frame_number % fps
+
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
+
+
+def read_tc_add_one_frame(time_str, video):
+    cap = cv2.VideoCapture(video)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    try:
+        hours, minutes, seconds, frames = map(int, time_str.split(":"))
+        frames += 1
+        if frames == fps:
+            frames = 0
+            seconds += 1
+        if seconds == 60:
+            seconds = 0
+            minutes += 1
+        if minutes == 60:
+            minutes = 0
+            hours += 1
+        cap.release()
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
+    except ValueError:
+        print("Invalid Input")
+        sys.exit()
+
+
+def video_time_length(cap):
+    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    seconds = frames / fps
+    video_time = datetime.timedelta(seconds=seconds)
+    return video_time
+
+
+# def set_video_start_time(cap):
+#     # seconds = all_frames / fps
+#     # frame = seconds * fps
+#     # frame = milis / 1000 * fps
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     video_time = video_time_length(cap)
+#     end_time = f"0{str(video_time)[3:7]}:{str(video_time)[8:10]}"
+#     time_str = input(
+#         f"Write time code in the format MM:SS:mm (max time: {end_time}): "
+#     )
+#     milis = convert_time_to_milliseconds(time_str)
+#     start_frame_stamp = milis / 1000 * fps
+#     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_stamp - 1)
+
+
+def image_manipulation_from_filename(picture):
+    img = cv2.imread(picture)
+    kernel_size = 3
+    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, threshold = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY)
+    blur = cv2.medianBlur(threshold, kernel_size)
+    cropped_img_l = blur[0:500, 0:1100]
+    cropped_img_r = blur[0:200, 1400:1920]
+    return cropped_img_l, cropped_img_r
+
+
+def image_manipulation_from_img(img):
+    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, threshold = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY)
+    cropped_img_l = threshold[0:500, 0:1100]
+    cropped_img_r = threshold[0:200, 1400:1920]
+    return cropped_img_l, cropped_img_r
+
+
+def text_extraction_from_video(counter, pic, reader):
+    text_storage = []
+    time_storage = []
+    reader_counter = counter
+    l_subpic, r_subpic = image_manipulation_from_img(pic)
+    current_readings = reader.readtext(l_subpic, detail=0)
+    if reader_counter >= 150:
+        reader = reader_inicialization()
+        print("Reader reseted")
+        reader_counter = 1
+    reader_counter += 1
+    if any(current_readings):
+        for text in current_readings:
+            if text.startswith("ADR"):
+                print(f"Found match: {text}")
+                current_readings = reader.readtext(r_subpic, detail=0)
+                reader_counter += 1
+                text_storage.append(text)
+                time_storage.append(current_readings[0])
+
+                print(f"{text} : {current_readings[0]}")
+    return text_storage, time_storage, reader_counter
+
+
+def generate_imgs_with_text_from_video(video):
+    cap = cv2.VideoCapture(video)
+    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # set_video_start_time(cap)
+    print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
+    # Check if camera opened successfully
+    frame_count = 0
+    frames_with_embedded_text_id = []
+    if cap.isOpened() == False:
+        print("Error opening video file")
+        sys.exit()
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if ret == True:
+            current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
+            if current_frame != frame_count:
+                print("Error frame")
+                sys.exit(0)
+            print(f"{current_frame}/{length-1}")
+            grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            _, threshold = cv2.threshold(
+                grayscale, 230, 255, cv2.THRESH_BINARY_INV
+            )
+            cropped_img_l = threshold[0:500, 0:1100]
+            cropped_img_r = threshold[0:200, 1400:1920]
+            n_white_pix = np.sum(cropped_img_l == 0)
+            if n_white_pix >= 500:
+                filename = f"frame_{frame_count}.png"
+                # print(f"Captured frame: {current_frame}")
+                cv2.imwrite("./temp/text_imgs/" + filename, cropped_img_l)
+                cv2.imwrite("./temp/tc_imgs/" + filename, cropped_img_r)
+                # frames_with_embedded_text_id.append(int(filename.split(".")[0][6:]))
+                frames_with_embedded_text_id.append(int(current_frame))
+            frame_count += 1
+
+        else:
+            break
+    # When everything done, release the video capture object
+    cap.release()
+
+    # Closes all the frames
+    cv2.destroyAllWindows()
+    return frames_with_embedded_text_id
+
+
+def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
+    cap = cv2.VideoCapture(video)
+    for frame_range in frames_ranges_with_vfx_text:
+        begining_frame = frame_range[0]
+        cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame - 1)
+        found_frame, frame = cap.read()
+        if found_frame:
+            img = cv2.resize(frame, None, fx=0.2, fy=0.2)
+            cv2.imwrite(f"./temp/thumbnails/{begining_frame}.png", img)
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
+    each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
+    frames_ranges_with_vfx_text = [
+        frame_range
+        for frame_range in each_scene_first_last_frame
+        if frame_range[0] in frames_with_embedded_text_id
+    ]
+    return frames_ranges_with_vfx_text
+
+
+def generate_vfx_text(frames_ranges_with_vfx_text, video):
+    print("Searching for VFX text")
+    found_vfx_text = {}
+    for frame_range in frames_ranges_with_vfx_text:
+        first_frame_of_scene = frame_range[0]
+        last_frame_of_scene = frame_range[1] - 1
+        left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
+        right_first_image = f"./temp/tc_imgs/frame_{first_frame_of_scene}.png"
+        right_last_image = f"./temp/tc_imgs/frame_{last_frame_of_scene}.png"
+        current_reading_left = [
+            list(
+                filter(
+                    None,
+                    pytesseract.image_to_string(
+                        Image.open(left_first_image),
+                        lang="eng",
+                    ).splitlines(),
+                )
+            )
+        ]
+        for text in current_reading_left:
+            if text[0].startswith("VFX"):
+                current_reading_right = [
+                    list(
+                        filter(
+                            None,
+                            pytesseract.image_to_string(
+                                Image.open(right_first_image),
+                                lang="eng",
+                            ).splitlines(),
+                        )
+                    )
+                ]
+                last_reading_right = [
+                    list(
+                        filter(
+                            None,
+                            pytesseract.image_to_string(
+                                Image.open(right_last_image),
+                                lang="eng",
+                            ).splitlines(),
+                        )
+                    )
+                ]
+                tc_out = read_tc_add_one_frame(last_reading_right[0][0], video)
+                if first_frame_of_scene not in found_vfx_text:
+                    found_vfx_text[first_frame_of_scene] = {}
+                    found_vfx_text[first_frame_of_scene]["TEXT"] = text[0]
+                    found_vfx_text[first_frame_of_scene]["TC IN"] = (
+                        current_reading_right[0][0]
+                    )
+                    found_vfx_text[first_frame_of_scene]["TC OUT"] = tc_out
+                    found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
+                        frame_range[1]
+                    )
+    return found_vfx_text
+
+
+def generate_adr_text(frames_with_embedded_text_id, video):
+    print("Searching for ADR text")
+    found_adr_text = {}
+    for count, frame in enumerate(frames_with_embedded_text_id):
+        left_image = f"./temp/text_imgs/frame_{frame}.png"
+        right_image = f"./temp/tc_imgs/frame_{frame}.png"
+        current_reading_left = [
+            list(
+                filter(
+                    None,
+                    pytesseract.image_to_string(
+                        Image.open(left_image),
+                        lang="eng",
+                    ).splitlines(),
+                )
+            )
+        ]
+        print(f"{count}/{len(frames_with_embedded_text_id)}")
+        for text in current_reading_left:
+            if text[0].startswith("ADR"):
+                current_reading_right = [
+                    list(
+                        filter(
+                            None,
+                            pytesseract.image_to_string(
+                                Image.open(right_image),
+                                lang="eng",
+                            ).splitlines(),
+                        )
+                    )
+                ]
+                print(text[0], current_reading_right[0][0])
+                if frame not in found_adr_text:
+                    found_adr_text[frame] = {}
+                    found_adr_text[frame]["TEXT"] = text[0]
+                    found_adr_text[frame]["TC"] = current_reading_right[0][0]
+    found_adr_text = remove_all_but_border_cases_found(found_adr_text, video)
+    return found_adr_text
+
+
+def remove_all_but_border_cases_found(text_dict, video):
+    numbers = text_dict.keys()
+    keys_series = []
+    first_and_last_key = []
+    new_adr_dict = {}
+    for i in numbers:
+        # if the keys_series is empty or the element is consecutive
+        if (not keys_series) or (keys_series[-1] == i - 1):
+            keys_series.append(i)
+        else:
+            # append a tuple of the first and last item of the keys_series
+            first_and_last_key.append((keys_series[0], keys_series[-1]))
+            keys_series = [i]
+    # needed in case keys_series is empty
+    if keys_series:
+        first_and_last_key.append((keys_series[0], keys_series[-1]))
+    for ranges in first_and_last_key:
+        tc_out = read_tc_add_one_frame(text_dict[ranges[1]]["TC"], video)
+        new_adr_dict[ranges[0]] = {}
+        new_adr_dict[ranges[0]]["TEXT"] = text_dict[ranges[0]]["TEXT"]
+        new_adr_dict[ranges[0]]["TC IN"] = text_dict[ranges[0]]["TC"]
+        new_adr_dict[ranges[0]]["TC OUT"] = tc_out
+        new_adr_dict[ranges[0]]["FRAME OUT"] = ranges[1] + 1
+    return new_adr_dict
+
+
+def merge_dicts(dict_a, dict_b):
+    merge_result = {}
+    for key in dict_a:
+        if key in dict_b:
+            merge_result[key] = {
+                "text": [dict_a[key]["text"], dict_b[key]["text"]],
+                "TC IN": dict_a[key]["TC IN"],
+                "TC OUT": [dict_a[key]["TC OUT"], dict_b[key]["TC OUT"]],
+            }
+        else:
+            merge_result[key] = dict_a[key]
+    for key in dict_b:
+        if key not in dict_a:
+            merge_result[key] = dict_b[key]
+    sorted_results = dict(sorted(merge_result.items()))
+    return sorted_results
+
+
+def add_real_timestamps(frames_dict, video):
+    cap = cv2.VideoCapture(video)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    for frame_number in frames_dict.keys():
+        real_tc_in = convert_current_frame_to_tc(frame_number, fps)
+        real_tc_out = convert_current_frame_to_tc(
+            frames_dict[frame_number]["FRAME OUT"], fps
+        )
+        frames_dict[frame_number]["REAL TC IN"] = real_tc_in
+        frames_dict[frame_number]["REAL TC OUT"] = real_tc_out
+    cap.release()
+    return frames_dict
+
+
+if __name__ == "__main__":
+    pass

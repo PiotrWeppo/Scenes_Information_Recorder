@@ -1,5 +1,8 @@
+import sys
 import glob
 import os
+import re
+import shutil
 
 
 def find_video_file():
@@ -25,13 +28,29 @@ def find_video_file():
                 return files_grabbed[int(choice) - 1]
             except IndexError:
                 print("\nNumber outside of the list.")
-                return
+                sys.exit()
             except ValueError:
                 print("\nEmpty or wrong input.")
-                return
+                sys.exit()
 
 
-def list_of_all_scene_pictures():
-    for i in glob.glob("Scene_pictures/*.jpg"):
-        print(i)
-    return glob.glob("Scene_pictures/*.jpg")
+# def list_of_all_scene_pictures(folder_name):
+#     return sorted(glob.glob(f"{folder_name}/*.png"))
+
+
+# def list_of_pictures(folder_name):
+#     files = glob.glob(os.path.join(folder_name, "*.png"))
+#     files.sort(
+#         key=lambda x: [
+#             int(c) if c.isdigit() else c for c in re.split(r"(\d+)", x)
+#         ]
+#     )
+#     return files
+
+
+def create_folder(*dir_paths):
+    dirs = list(dir_paths)
+    for d in dirs:
+        if os.path.exists(d):
+            shutil.rmtree(d)
+        os.makedirs(d)

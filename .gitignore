@@ -9,7 +9,13 @@ bin-release/
 *.pdf
 *.mp4
 *.mov
+*.csv
+*.txt
+*.xlsx
+*.ods
 Scene_pictures
+Scene_thumbnails
+temp
 
 #Pipenv files
 Pipfile
