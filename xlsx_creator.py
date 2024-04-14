@@ -25,6 +25,7 @@ def create_xlsx_file(dataframe, video):
     images = list_of_pictures("temp/thumbnails")
     writer = pd.ExcelWriter(f"{video_name}.xlsx", engine="xlsxwriter")
     dataframe.to_excel(writer, sheet_name="Sheet1", index=False)
+    print("Creating Excel file...")
     # dataframe.style.set_properties(**{"text-align": "center"})
     workbook = writer.book
     # cell_format = workbook.add_format()

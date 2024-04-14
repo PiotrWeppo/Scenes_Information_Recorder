@@ -1,5 +1,4 @@
 import sys
-import datetime
 import cv2
 from PIL import Image
 import pytesseract
@@ -46,12 +45,12 @@ def read_tc_add_one_frame(time_str, video):
         sys.exit()
 
 
-def video_time_length(cap):
-    frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    seconds = frames / fps
-    video_time = datetime.timedelta(seconds=seconds)
-    return video_time
+# def video_time_length(cap):
+#     frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     seconds = frames / fps
+#     video_time = datetime.timedelta(seconds=seconds)
+#     return video_time
 
 
 # def set_video_start_time(cap):
@@ -69,49 +68,6 @@ def video_time_length(cap):
 #     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_stamp - 1)
 
 
-def image_manipulation_from_filename(picture):
-    img = cv2.imread(picture)
-    kernel_size = 3
-    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, threshold = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY)
-    blur = cv2.medianBlur(threshold, kernel_size)
-    cropped_img_l = blur[0:500, 0:1100]
-    cropped_img_r = blur[0:200, 1400:1920]
-    return cropped_img_l, cropped_img_r
-
-
-def image_manipulation_from_img(img):
-    grayscale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, threshold = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY)
-    cropped_img_l = threshold[0:500, 0:1100]
-    cropped_img_r = threshold[0:200, 1400:1920]
-    return cropped_img_l, cropped_img_r
-
-
-def text_extraction_from_video(counter, pic, reader):
-    text_storage = []
-    time_storage = []
-    reader_counter = counter
-    l_subpic, r_subpic = image_manipulation_from_img(pic)
-    current_readings = reader.readtext(l_subpic, detail=0)
-    if reader_counter >= 150:
-        reader = reader_inicialization()
-        print("Reader reseted")
-        reader_counter = 1
-    reader_counter += 1
-    if any(current_readings):
-        for text in current_readings:
-            if text.startswith("ADR"):
-                print(f"Found match: {text}")
-                current_readings = reader.readtext(r_subpic, detail=0)
-                reader_counter += 1
-                text_storage.append(text)
-                time_storage.append(current_readings[0])
-
-                print(f"{text} : {current_readings[0]}")
-    return text_storage, time_storage, reader_counter
-
-
 def generate_imgs_with_text_from_video(video):
     cap = cv2.VideoCapture(video)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -123,6 +79,7 @@ def generate_imgs_with_text_from_video(video):
     if cap.isOpened() == False:
         print("Error opening video file")
         sys.exit()
+    print("Generating images with text")
     while cap.isOpened():
         ret, frame = cap.read()
         if ret == True:
@@ -158,6 +115,7 @@ def generate_imgs_with_text_from_video(video):
 
 
 def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
+    print("Generating thumbnails")
     cap = cv2.VideoCapture(video)
     for frame_range in frames_ranges_with_vfx_text:
         begining_frame = frame_range[0]

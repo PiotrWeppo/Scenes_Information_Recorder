@@ -26,31 +26,31 @@ def detect_all_scenes(video_name=None):
         return scene_list
 
 
-def create_scenes_pictures(scene_list, video_name=None):
-    if video_name is not None:
-        video = open_video(video_name)
-        print("\n-Saving pictures from scenes-")
-        # img_paths = save_images(
-        #     scene_list=scene_list,
-        #     video=video,
-        #     num_images=2,
-        #     show_progress=True,
-        #     # encoder_param=50,
-        #     output_dir="./Scene_pictures",
-        #     image_extension="png",
-        # )
-        print("\n-Saving thumbnails from scenes-")
-        save_images(
-            scene_list=scene_list,
-            video=video,
-            num_images=3,
-            show_progress=True,
-            encoder_param=3,
-            output_dir="./Scene_thumbnails",
-            image_extension="png",
-            width=500,
-            height=281,
-        )
+# def create_scenes_pictures(scene_list, video_name=None):
+#     if video_name is not None:
+#         video = open_video(video_name)
+#         print("\n-Saving pictures from scenes-")
+#         # img_paths = save_images(
+#         #     scene_list=scene_list,
+#         #     video=video,
+#         #     num_images=2,
+#         #     show_progress=True,
+#         #     # encoder_param=50,
+#         #     output_dir="./Scene_pictures",
+#         #     image_extension="png",
+#         # )
+#         print("\n-Saving thumbnails from scenes-")
+#         save_images(
+#             scene_list=scene_list,
+#             video=video,
+#             num_images=3,
+#             show_progress=True,
+#             encoder_param=3,
+#             output_dir="./Scene_thumbnails",
+#             image_extension="png",
+#             width=500,
+#             height=281,
+#         )
 
 
 if __name__ == "__main__":
