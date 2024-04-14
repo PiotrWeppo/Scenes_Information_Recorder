@@ -10,6 +10,7 @@ from text_recognition import (
 from files_operations import (
     find_video_file,
     create_folder,
+    delete_folder
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
@@ -35,3 +36,4 @@ final_text_dict = add_real_timestamps(merged_text_dict, video)
 # print(final_text_dict)
 df = create_dataframe(final_text_dict)
 create_xlsx_file(df, video)
+delete_folder("./temp")

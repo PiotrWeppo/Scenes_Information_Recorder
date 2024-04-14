@@ -49,8 +49,19 @@ def list_of_pictures(folder_name):
 
 
 def create_folder(*dir_paths):
+    print("Creating temporary folders...")
     dirs = list(dir_paths)
     for d in dirs:
         if os.path.exists(d):
             shutil.rmtree(d)
         os.makedirs(d)
+
+
+def delete_folder(*dir_paths):
+    print("Deleting temporary folders...")
+    dirs = list(dir_paths)
+    for d in dirs:
+        if os.path.exists(d):
+            shutil.rmtree(d)
+        else:
+            print(f"The folder {d} does not exist.")
