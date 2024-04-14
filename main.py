@@ -12,6 +12,7 @@ from files_operations import (
     create_folder,
 )
 from scenes_detection import detect_all_scenes
+from xlsx_creator import create_dataframe, create_xlsx_file
 
 
 video = find_video_file()
@@ -31,4 +32,6 @@ found_adr_text = generate_adr_text(frames_with_embedded_text_id, video)
 merged_text_dict = merge_dicts(found_vfx_text, found_adr_text)
 # print(merged_text_dict)
 final_text_dict = add_real_timestamps(merged_text_dict, video)
-print(final_text_dict)
+# print(final_text_dict)
+df = create_dataframe(final_text_dict)
+create_xlsx_file(df, video)

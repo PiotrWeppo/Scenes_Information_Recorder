@@ -161,7 +161,7 @@ def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
     cap = cv2.VideoCapture(video)
     for frame_range in frames_ranges_with_vfx_text:
         begining_frame = frame_range[0]
-        cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame - 1)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame)
         found_frame, frame = cap.read()
         if found_frame:
             img = cv2.resize(frame, None, fx=0.2, fy=0.2)

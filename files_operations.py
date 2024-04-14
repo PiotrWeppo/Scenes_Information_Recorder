@@ -38,14 +38,14 @@ def find_video_file():
 #     return sorted(glob.glob(f"{folder_name}/*.png"))
 
 
-# def list_of_pictures(folder_name):
-#     files = glob.glob(os.path.join(folder_name, "*.png"))
-#     files.sort(
-#         key=lambda x: [
-#             int(c) if c.isdigit() else c for c in re.split(r"(\d+)", x)
-#         ]
-#     )
-#     return files
+def list_of_pictures(folder_name):
+    files = glob.glob(os.path.join(folder_name, "*.png"))
+    files.sort(
+        key=lambda x: [
+            int(c) if c.isdigit() else c for c in re.split(r"(\d+)", x)
+        ]
+    )
+    return files
 
 
 def create_folder(*dir_paths):
