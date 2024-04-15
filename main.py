@@ -6,11 +6,12 @@ from text_recognition import (
     generate_adr_text,
     merge_dicts,
     add_real_timestamps,
+    set_video_start_time,
 )
 from files_operations import (
     find_video_file,
     create_folder,
-    delete_folder
+    delete_folder,
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
@@ -18,7 +19,10 @@ from xlsx_creator import create_dataframe, create_xlsx_file
 
 video = find_video_file()
 create_folder("./temp/text_imgs", "./temp/tc_imgs", "./temp/thumbnails")
-frames_with_embedded_text_id = generate_imgs_with_text_from_video(video)
+start_frame = set_video_start_time(video)
+frames_with_embedded_text_id = generate_imgs_with_text_from_video(
+    video, start_frame
+)
 scene_list = detect_all_scenes(video)
 # print(scene_list)
 frames_ranges_with_vfx_text = check_if_vfx_in_found_scenes(

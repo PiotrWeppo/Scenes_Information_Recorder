@@ -69,20 +69,49 @@ def read_tc_add_one_frame(time_str, video):
 #     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_stamp - 1)
 
 
-def generate_imgs_with_text_from_video(video):
+def set_video_start_time(video):
     cap = cv2.VideoCapture(video)
+    time_code = input(
+        "\nPress Enter or set video starting point (Seconds:Frames or StartingFrame): "
+    )
+    if time_code == "":
+        return
+    if ":" in time_code:
+        try:
+            seconds, frames = map(int, time_code.split(":"))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            start_frame = seconds * fps + frames
+        except ValueError:
+            print("Invalid Input. Exiting.")
+            sys.exit()
+    if time_code.isdigit():
+        start_frame = int(time_code)
+    else:
+        print("Invalid Input. Exiting.")
+        sys.exit()
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    # set_video_start_time(cap)
+    if start_frame > length:
+        print("Frame number outside of video length. Exiting.")
+        sys.exit()
+    cap.release()
+    return start_frame
+
+
+def generate_imgs_with_text_from_video(video, start_frame=0):
+    cap = cv2.VideoCapture(video)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame - 1)
+    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     # print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
     # Check if camera opened successfully
-    frame_count = 0
+    print("Current frame: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)) + 1)
+    # frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
         print("Error opening video file")
         sys.exit()
-    print("-Saving frames containing text-")
+    print("\n-Saving frames containing text-")
     pbar = tqdm(
-        total=length - 1,
+        total=length - 1 - start_frame,
         desc="Scanned frames",
         unit="frames",
         leave=True,
@@ -92,9 +121,9 @@ def generate_imgs_with_text_from_video(video):
         ret, frame = cap.read()
         if ret == True:
             current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
-            if current_frame != frame_count:
-                print("Error frame")
-                sys.exit(0)
+            # if current_frame != frame_count:
+            #     print("Error frame")
+            #     sys.exit(0)
             # print(f"{current_frame}/{length-1}")
             grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, threshold = cv2.threshold(
@@ -107,14 +136,14 @@ def generate_imgs_with_text_from_video(video):
                 f"Frames saved: {frames_counter}", refresh=True
             )
             if n_white_pix >= 500:
-                filename = f"frame_{frame_count}.png"
+                filename = f"frame_{current_frame}.png"
                 # print(f"Captured frame: {current_frame}")
                 cv2.imwrite("./temp/text_imgs/" + filename, cropped_img_l)
                 cv2.imwrite("./temp/tc_imgs/" + filename, cropped_img_r)
                 # frames_with_embedded_text_id.append(int(filename.split(".")[0][6:]))
                 frames_with_embedded_text_id.append(int(current_frame))
                 frames_counter += 1
-            frame_count += 1
+            # frame_count += 1
             pbar.update(1)
 
         else:
@@ -128,9 +157,20 @@ def generate_imgs_with_text_from_video(video):
     return frames_with_embedded_text_id
 
 
+def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
+    each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
+    frames_ranges_with_vfx_text = [
+        frame_range
+        for frame_range in each_scene_first_last_frame
+        if frame_range[0] in frames_with_embedded_text_id
+    ]
+    print(f"-Found VFX text in {len(frames_ranges_with_vfx_text)} scenes-")
+    return frames_ranges_with_vfx_text
+
+
 def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
     cap = cv2.VideoCapture(video)
-    print("-Generating Thumbnails-")
+    print("\n-Generating Thumbnails-")
     for frame_range in tqdm(
         frames_ranges_with_vfx_text,
         desc="Generated",
@@ -146,20 +186,9 @@ def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
     cv2.destroyAllWindows()
 
 
-def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
-    each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
-    frames_ranges_with_vfx_text = [
-        frame_range
-        for frame_range in each_scene_first_last_frame
-        if frame_range[0] in frames_with_embedded_text_id
-    ]
-    print(f"-Found VFX text in {len(frames_ranges_with_vfx_text)} scenes-")
-    return frames_ranges_with_vfx_text
-
-
-def generate_vfx_text(frames_ranges_with_vfx_text, video):
+def generate_vfx_text(frames_ranges_with_vfx_text, video,):
     found_vfx_text = {}
-    print("-Reading VFX text-")
+    print("\n-Reading VFX text-")
     for frame_range in tqdm(
         frames_ranges_with_vfx_text,
         desc="Frames checked",
@@ -221,7 +250,7 @@ def generate_vfx_text(frames_ranges_with_vfx_text, video):
 
 def generate_adr_text(frames_with_embedded_text_id, video):
     found_adr_text = {}
-    print("-Searching for ADR text-")
+    print("\n-Searching for ADR text-")
     pbar = tqdm(
         total=len(frames_with_embedded_text_id),
         desc="Frames checked",
