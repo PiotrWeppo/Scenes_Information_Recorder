@@ -3,6 +3,7 @@ import cv2
 from PIL import Image
 import pytesseract
 import numpy as np
+from tqdm import tqdm
 
 pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
 
@@ -72,14 +73,21 @@ def generate_imgs_with_text_from_video(video):
     cap = cv2.VideoCapture(video)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     # set_video_start_time(cap)
-    print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
+    # print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
     # Check if camera opened successfully
     frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
         print("Error opening video file")
         sys.exit()
-    print("Generating images with text")
+    print("-Saving frames containing text-")
+    pbar = tqdm(
+        total=length - 1,
+        desc="Scanned frames",
+        unit="frames",
+        leave=True,
+    )
+    frames_counter = 0
     while cap.isOpened():
         ret, frame = cap.read()
         if ret == True:
@@ -87,7 +95,7 @@ def generate_imgs_with_text_from_video(video):
             if current_frame != frame_count:
                 print("Error frame")
                 sys.exit(0)
-            print(f"{current_frame}/{length-1}")
+            # print(f"{current_frame}/{length-1}")
             grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, threshold = cv2.threshold(
                 grayscale, 230, 255, cv2.THRESH_BINARY_INV
@@ -95,6 +103,9 @@ def generate_imgs_with_text_from_video(video):
             cropped_img_l = threshold[0:500, 0:1100]
             cropped_img_r = threshold[0:200, 1400:1920]
             n_white_pix = np.sum(cropped_img_l == 0)
+            pbar.set_postfix_str(
+                f"Frames saved: {frames_counter}", refresh=True
+            )
             if n_white_pix >= 500:
                 filename = f"frame_{frame_count}.png"
                 # print(f"Captured frame: {current_frame}")
@@ -102,11 +113,14 @@ def generate_imgs_with_text_from_video(video):
                 cv2.imwrite("./temp/tc_imgs/" + filename, cropped_img_r)
                 # frames_with_embedded_text_id.append(int(filename.split(".")[0][6:]))
                 frames_with_embedded_text_id.append(int(current_frame))
+                frames_counter += 1
             frame_count += 1
+            pbar.update(1)
 
         else:
             break
     # When everything done, release the video capture object
+    pbar.close()
     cap.release()
 
     # Closes all the frames
@@ -115,9 +129,13 @@ def generate_imgs_with_text_from_video(video):
 
 
 def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
-    print("Generating thumbnails")
     cap = cv2.VideoCapture(video)
-    for frame_range in frames_ranges_with_vfx_text:
+    print("-Generating Thumbnails-")
+    for frame_range in tqdm(
+        frames_ranges_with_vfx_text,
+        desc="Generated",
+        unit="imgs",
+    ):
         begining_frame = frame_range[0]
         cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame)
         found_frame, frame = cap.read()
@@ -135,13 +153,18 @@ def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
         for frame_range in each_scene_first_last_frame
         if frame_range[0] in frames_with_embedded_text_id
     ]
+    print(f"-Found VFX text in {len(frames_ranges_with_vfx_text)} scenes-")
     return frames_ranges_with_vfx_text
 
 
 def generate_vfx_text(frames_ranges_with_vfx_text, video):
-    print("Searching for VFX text")
     found_vfx_text = {}
-    for frame_range in frames_ranges_with_vfx_text:
+    print("-Reading VFX text-")
+    for frame_range in tqdm(
+        frames_ranges_with_vfx_text,
+        desc="Frames checked",
+        unit="frames",
+    ):
         first_frame_of_scene = frame_range[0]
         last_frame_of_scene = frame_range[1] - 1
         left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
@@ -197,9 +220,15 @@ def generate_vfx_text(frames_ranges_with_vfx_text, video):
 
 
 def generate_adr_text(frames_with_embedded_text_id, video):
-    print("Searching for ADR text")
     found_adr_text = {}
-    for count, frame in enumerate(frames_with_embedded_text_id):
+    print("-Searching for ADR text-")
+    pbar = tqdm(
+        total=len(frames_with_embedded_text_id),
+        desc="Frames checked",
+        unit="frames",
+    )
+
+    for frame in frames_with_embedded_text_id:
         left_image = f"./temp/text_imgs/frame_{frame}.png"
         right_image = f"./temp/tc_imgs/frame_{frame}.png"
         current_reading_left = [
@@ -213,7 +242,6 @@ def generate_adr_text(frames_with_embedded_text_id, video):
                 )
             )
         ]
-        print(f"{count}/{len(frames_with_embedded_text_id)}")
         for text in current_reading_left:
             if text[0].startswith("ADR"):
                 current_reading_right = [
@@ -227,11 +255,14 @@ def generate_adr_text(frames_with_embedded_text_id, video):
                         )
                     )
                 ]
-                print(text[0], current_reading_right[0][0])
+                pbar.set_postfix_str(
+                    f"Last text found: {text[0]}", refresh=True
+                )
                 if frame not in found_adr_text:
                     found_adr_text[frame] = {}
                     found_adr_text[frame]["TEXT"] = text[0]
                     found_adr_text[frame]["TC"] = current_reading_right[0][0]
+        pbar.update(1)
     found_adr_text = remove_all_but_border_cases_found(found_adr_text, video)
     return found_adr_text
 
