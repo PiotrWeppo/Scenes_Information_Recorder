@@ -43,6 +43,7 @@ def read_tc_add_one_frame(time_str, video):
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
     except ValueError:
         print("Invalid Input")
+        input("Press Enter to exit...")
         sys.exit()
 
 
@@ -82,16 +83,19 @@ def set_video_start_time(video):
             fps = cap.get(cv2.CAP_PROP_FPS)
             start_frame = seconds * fps + frames
         except ValueError:
-            print("Invalid Input. Exiting.")
+            print("Invalid Input.")
+            input("Press Enter to exit...")
             sys.exit()
     if time_code.isdigit():
         start_frame = int(time_code)
     else:
-        print("Invalid Input. Exiting.")
+        print("Invalid Input.")
+        input("Press Enter to exit...")
         sys.exit()
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if start_frame > length:
-        print("Frame number outside of video length. Exiting.")
+        print("Frame number outside of video length.")
+        input("Press Enter to exit...")
         sys.exit()
     cap.release()
     return start_frame
@@ -108,6 +112,7 @@ def generate_imgs_with_text_from_video(video, start_frame=0):
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
         print("Error opening video file")
+        input("Press Enter to exit...")
         sys.exit()
     print("\n-Saving frames containing text-")
     pbar = tqdm(

@@ -28,9 +28,11 @@ def find_video_file():
                 return files_grabbed[int(choice) - 1]
             except IndexError:
                 print("\nNumber outside of the list.")
+                input("Press Enter to exit...")
                 sys.exit()
             except ValueError:
                 print("\nEmpty or wrong input.")
+                input("Press Enter to exit...")
                 sys.exit()
 
 

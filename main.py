@@ -18,8 +18,8 @@ from xlsx_creator import create_dataframe, create_xlsx_file
 
 
 video = find_video_file()
-create_folder("./temp/text_imgs", "./temp/tc_imgs", "./temp/thumbnails")
 start_frame = set_video_start_time(video)
+create_folder("./temp/text_imgs", "./temp/tc_imgs", "./temp/thumbnails")
 frames_with_embedded_text_id = generate_imgs_with_text_from_video(
     video, start_frame
 )
@@ -41,4 +41,4 @@ final_text_dict = add_real_timestamps(merged_text_dict, video)
 df = create_dataframe(final_text_dict)
 create_xlsx_file(df, video)
 delete_folder("./temp")
-print("Done.")
+input("Done. Press Enter to exit: ")
