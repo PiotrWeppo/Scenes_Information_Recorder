@@ -76,7 +76,7 @@ def set_video_start_time(video):
         "\nPress Enter or set video starting point (Seconds:Frames or StartingFrame): "
     )
     if time_code == "":
-        return
+        return 0
     if ":" in time_code:
         try:
             seconds, frames = map(int, time_code.split(":"))
