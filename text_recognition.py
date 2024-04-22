@@ -5,7 +5,7 @@ import pytesseract
 import numpy as np
 from tqdm import tqdm
 
-pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
+# pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
 
 
 def convert_current_frame_to_tc(frame_number, fps):
@@ -107,14 +107,17 @@ def generate_imgs_with_text_from_video(video, start_frame=0):
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     # print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
     # Check if camera opened successfully
-    print("Current frame: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)) + 1)
+    if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) == 0:
+        print("Current frame: 0")
+    else:
+        print("Current frame: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES + 1)))
     # frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
         print("Error opening video file")
         input("Press Enter to exit...")
         sys.exit()
-    print("\n-Saving frames containing text-")
+    print("\n-Saving frames containing potential text-")
     pbar = tqdm(
         total=length - 1 - start_frame,
         desc="Scanned frames",
@@ -164,38 +167,46 @@ def generate_imgs_with_text_from_video(video, start_frame=0):
 
 def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
     each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
-    frames_ranges_with_vfx_text = [
+    potential_frames_ranges_with_vfx_text = [
         frame_range
         for frame_range in each_scene_first_last_frame
-        if frame_range[0] in frames_with_embedded_text_id
+        if (frame_range[1] - 1) in frames_with_embedded_text_id
     ]
-    print(f"-Found VFX text in {len(frames_ranges_with_vfx_text)} scenes-")
-    return frames_ranges_with_vfx_text
+    print(
+        f"-Found VFX text in {len(potential_frames_ranges_with_vfx_text)} scenes-"
+    )
+    print(potential_frames_ranges_with_vfx_text)
+    return potential_frames_ranges_with_vfx_text
 
 
-def generate_thumbnails_for_each_scene(video, frames_ranges_with_vfx_text):
+def generate_thumbnails_for_each_scene(
+    video, potential_frames_ranges_with_vfx_text
+):
     cap = cv2.VideoCapture(video)
     print("\n-Generating Thumbnails-")
     for frame_range in tqdm(
-        frames_ranges_with_vfx_text,
-        desc="Generated",
+        potential_frames_ranges_with_vfx_text,
+        desc="Generated ",
         unit="imgs",
     ):
         begining_frame = frame_range[0]
         cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame)
         found_frame, frame = cap.read()
         if found_frame:
-            img = cv2.resize(frame, None, fx=0.2, fy=0.2)
+            img = cv2.resize(frame, None, fx=0.4, fy=0.4)
             cv2.imwrite(f"./temp/thumbnails/{begining_frame}.png", img)
     cap.release()
     cv2.destroyAllWindows()
 
 
-def generate_vfx_text(frames_ranges_with_vfx_text, video,):
+def generate_vfx_text(
+    potential_frames_ranges_with_vfx_text,
+    video,
+):
     found_vfx_text = {}
     print("\n-Reading VFX text-")
     for frame_range in tqdm(
-        frames_ranges_with_vfx_text,
+        potential_frames_ranges_with_vfx_text,
         desc="Frames checked",
         unit="frames",
     ):

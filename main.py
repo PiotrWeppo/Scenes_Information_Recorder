@@ -15,8 +15,9 @@ from files_operations import (
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
+import sys
 
-
+print("Welcome to the VFX/ADR text detection program.\n")
 video = find_video_file()
 start_frame = set_video_start_time(video)
 create_folder("./temp/text_imgs", "./temp/tc_imgs", "./temp/thumbnails")
@@ -42,3 +43,4 @@ df = create_dataframe(final_text_dict)
 create_xlsx_file(df, video)
 delete_folder("./temp")
 input("Done. Press Enter to exit: ")
+sys.exit()

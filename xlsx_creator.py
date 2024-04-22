@@ -21,6 +21,7 @@ def create_dataframe(final_dict):
 
 
 def create_xlsx_file(dataframe, video):
+    print("\n-Creating Excel file-")
     video_name = video.split(".")[0]
     images = list_of_pictures("temp/thumbnails")
     writer = pd.ExcelWriter(f"{video_name}.xlsx", engine="xlsxwriter")

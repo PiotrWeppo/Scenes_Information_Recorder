@@ -10,17 +10,18 @@ def find_video_file():
     files_grabbed = []
     for files in types:
         files_grabbed.extend(glob.glob(files))
-
     match len(files_grabbed):
         case 0:
-            return
+            print("\nNo video files found.")
+            input("Press Enter to exit...")
+            sys.exit()
         case 1:
             return files_grabbed[0]
-        case other:
+        case _:
             for i, file in enumerate(files_grabbed):
                 print("|", i + 1, "|", file)
             choice = input(
-                "\nWhich file to open? Choose corresponding number: "
+                "\nWhich file to open? Type corresponding number: "
             )
             try:
                 os.system("cls||clear")
@@ -51,7 +52,7 @@ def list_of_pictures(folder_name):
 
 
 def create_folder(*dir_paths):
-    print("Creating temporary folders...")
+    print("\n-Creating temporary folders-")
     dirs = list(dir_paths)
     for d in dirs:
         if os.path.exists(d):
@@ -60,7 +61,7 @@ def create_folder(*dir_paths):
 
 
 def delete_folder(*dir_paths):
-    print("Deleting temporary folders...")
+    print("\n-Deleting temporary folders-")
     dirs = list(dir_paths)
     for d in dirs:
         if os.path.exists(d):
