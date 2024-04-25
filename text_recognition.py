@@ -57,29 +57,6 @@ def read_tc_add_one_frame(time_str, video):
         sys.exit()
 
 
-# def video_time_length(cap):
-#     frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-#     fps = cap.get(cv2.CAP_PROP_FPS)
-#     seconds = frames / fps
-#     video_time = datetime.timedelta(seconds=seconds)
-#     return video_time
-
-
-# def set_video_start_time(cap):
-#     # seconds = all_frames / fps
-#     # frame = seconds * fps
-#     # frame = milis / 1000 * fps
-#     fps = cap.get(cv2.CAP_PROP_FPS)
-#     video_time = video_time_length(cap)
-#     end_time = f"0{str(video_time)[3:7]}:{str(video_time)[8:10]}"
-#     time_str = input(
-#         f"Write time code in the format MM:SS:mm (max time: {end_time}): "
-#     )
-#     milis = convert_time_to_milliseconds(time_str)
-#     start_frame_stamp = milis / 1000 * fps
-#     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_stamp - 1)
-
-
 def set_video_start_time(video):
     cap = cv2.VideoCapture(video)
     time_code = input(
@@ -208,6 +185,21 @@ def generate_thumbnails_for_each_scene(
     cv2.destroyAllWindows()
 
 
+def read_text_from_image(image_path):
+    found_text = [
+        list(
+            filter(
+                None,
+                pytesseract.image_to_string(
+                    Image.open(image_path),
+                    lang="eng",
+                ).splitlines(),
+            )
+        )
+    ]
+    return found_text
+
+
 def generate_vfx_text(
     potential_frames_ranges_with_vfx_text,
     video,
@@ -226,18 +218,9 @@ def generate_vfx_text(
         left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
         right_first_image = f"./temp/tc_imgs/frame_{first_frame_of_scene}.png"
         right_last_image = f"./temp/tc_imgs/frame_{last_frame_of_scene}.png"
+
         try:
-            current_reading_left = [
-                list(
-                    filter(
-                        None,
-                        pytesseract.image_to_string(
-                            Image.open(left_first_image),
-                            lang="eng",
-                        ).splitlines(),
-                    )
-                )
-            ]
+            current_reading_left = read_text_from_image(left_first_image)
         except FileNotFoundError as e:
             frames_not_found.append(first_frame_of_scene)
             logging.exception(
@@ -246,28 +229,8 @@ def generate_vfx_text(
             continue
         for text in current_reading_left:
             if text[0].startswith("VFX"):
-                current_reading_right = [
-                    list(
-                        filter(
-                            None,
-                            pytesseract.image_to_string(
-                                Image.open(right_first_image),
-                                lang="eng",
-                            ).splitlines(),
-                        )
-                    )
-                ]
-                last_reading_right = [
-                    list(
-                        filter(
-                            None,
-                            pytesseract.image_to_string(
-                                Image.open(right_last_image),
-                                lang="eng",
-                            ).splitlines(),
-                        )
-                    )
-                ]
+                current_reading_right = read_text_from_image(right_first_image)
+                last_reading_right = read_text_from_image(right_last_image)
                 tc_out = read_tc_add_one_frame(last_reading_right[0][0], video)
                 if first_frame_of_scene not in found_vfx_text:
                     found_vfx_text[first_frame_of_scene] = {}
@@ -297,30 +260,10 @@ def generate_adr_text(frames_with_embedded_text_id, video):
     for frame in frames_with_embedded_text_id:
         left_image = f"./temp/text_imgs/frame_{frame}.png"
         right_image = f"./temp/tc_imgs/frame_{frame}.png"
-        current_reading_left = [
-            list(
-                filter(
-                    None,
-                    pytesseract.image_to_string(
-                        Image.open(left_image),
-                        lang="eng",
-                    ).splitlines(),
-                )
-            )
-        ]
+        current_reading_left = read_text_from_image(left_image)
         for text in current_reading_left:
             if text[0].startswith("ADR"):
-                current_reading_right = [
-                    list(
-                        filter(
-                            None,
-                            pytesseract.image_to_string(
-                                Image.open(right_image),
-                                lang="eng",
-                            ).splitlines(),
-                        )
-                    )
-                ]
+                current_reading_right = read_text_from_image(right_image)
                 pbar.set_postfix_str(
                     f"Last text found: {text[0]}", refresh=True
                 )
