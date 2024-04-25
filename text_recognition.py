@@ -1,3 +1,4 @@
+import logging
 import sys
 import cv2
 from PIL import Image
@@ -6,6 +7,15 @@ import numpy as np
 from tqdm import tqdm
 
 # pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
+
+
+def start_logging_errors():
+    logging.basicConfig(
+        filename="error_log.txt",
+        filemode="w",
+        format="%(asctime)s %(message)s",
+        level=logging.ERROR,
+    )
 
 
 def convert_current_frame_to_tc(frame_number, fps):
@@ -101,17 +111,17 @@ def set_video_start_time(video):
     return start_frame
 
 
-def generate_imgs_with_text_from_video(video, start_frame=0):
+def generate_imgs_with_text_from_video(video, start_frame):
     cap = cv2.VideoCapture(video)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame - 1)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     # print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
     # Check if camera opened successfully
-    if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) == 0:
-        print("Current frame: 0")
-    else:
-        print("Current frame: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES + 1)))
-    # frame_count = 0
+    # if int(cap.get(cv2.CAP_PROP_POS_FRAMES)) == 0:
+    #     print("Current frame: 0")
+    # else:
+    #     print("Current fram: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES + 1)))
+    # # frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
         print("Error opening video file")
@@ -175,7 +185,6 @@ def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
     print(
         f"-Found VFX text in {len(potential_frames_ranges_with_vfx_text)} scenes-"
     )
-    print(potential_frames_ranges_with_vfx_text)
     return potential_frames_ranges_with_vfx_text
 
 
@@ -203,7 +212,9 @@ def generate_vfx_text(
     potential_frames_ranges_with_vfx_text,
     video,
 ):
+    start_logging_errors()
     found_vfx_text = {}
+    frames_not_found = []
     print("\n-Reading VFX text-")
     for frame_range in tqdm(
         potential_frames_ranges_with_vfx_text,
@@ -215,17 +226,24 @@ def generate_vfx_text(
         left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
         right_first_image = f"./temp/tc_imgs/frame_{first_frame_of_scene}.png"
         right_last_image = f"./temp/tc_imgs/frame_{last_frame_of_scene}.png"
-        current_reading_left = [
-            list(
-                filter(
-                    None,
-                    pytesseract.image_to_string(
-                        Image.open(left_first_image),
-                        lang="eng",
-                    ).splitlines(),
+        try:
+            current_reading_left = [
+                list(
+                    filter(
+                        None,
+                        pytesseract.image_to_string(
+                            Image.open(left_first_image),
+                            lang="eng",
+                        ).splitlines(),
+                    )
                 )
+            ]
+        except FileNotFoundError as e:
+            frames_not_found.append(first_frame_of_scene)
+            logging.exception(
+                f"Error with frame {first_frame_of_scene}:\n %s", e
             )
-        ]
+            continue
         for text in current_reading_left:
             if text[0].startswith("VFX"):
                 current_reading_right = [
@@ -261,6 +279,9 @@ def generate_vfx_text(
                     found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
                         frame_range[1]
                     )
+    print(
+        f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
+    )
     return found_vfx_text
 
 
