@@ -25,6 +25,10 @@ def find_video_file():
             )
             try:
                 os.system("cls||clear")
+                if int(choice) == 0:
+                    print("\nNumber outside of the list.")
+                    input("Press Enter to exit...")
+                    sys.exit()
                 print(f"Opening {files_grabbed[int(choice) - 1]}")
                 return files_grabbed[int(choice) - 1]
             except IndexError:
