@@ -170,7 +170,7 @@ def generate_thumbnails_for_each_scene(
         cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame)
         found_frame, frame = cap.read()
         if found_frame:
-            img = cv2.resize(frame, None, fx=0.4, fy=0.4)
+            img = cv2.resize(frame, None, fx=0.25, fy=0.25)
             cv2.imwrite(f"./temp/thumbnails/{begining_frame}.png", img)
     cap.release()
     cv2.destroyAllWindows()

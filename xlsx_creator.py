@@ -39,11 +39,11 @@ def create_xlsx_file(dataframe, video):
     pic_index = 0
     pic_row = 2
     dataframe_length = len(dataframe.index)
-    worksheet.set_column_pixels(first_col=1, last_col=1, width=1920*0.2)
+    worksheet.set_column_pixels(first_col=1, last_col=1, width=1920*0.25)
     for index in range(dataframe_length):
-        worksheet.set_row_pixels(row=pic_row-1, height=1080*0.2)
+        worksheet.set_row_pixels(row=pic_row-1, height=1080*0.25)
         if dataframe.iloc[index]["TEXT"].startswith("VFX"):
-            worksheet.embed_image(f"B{pic_row}", images[pic_index])
+            worksheet.insert_image(f"B{pic_row}", images[pic_index])
             pic_index += 1
         pic_row += 1
 
