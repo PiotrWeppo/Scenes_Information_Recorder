@@ -9,15 +9,6 @@ from tqdm import tqdm
 # pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
 
 
-def start_logging_errors():
-    logging.basicConfig(
-        filename="error_log.txt",
-        filemode="w",
-        format="%(asctime)s %(message)s",
-        level=logging.ERROR,
-    )
-
-
 def convert_current_frame_to_tc(frame_number, fps):
     frame_number = int(frame_number)
     fps = int(fps)
@@ -64,17 +55,17 @@ def set_video_start_time(video):
     )
     if time_code == "":
         return 0
-    if ":" in time_code:
+    if time_code.isdigit():
+        start_frame = int(time_code)
+    elif ":" in time_code:
         try:
             seconds, frames = map(int, time_code.split(":"))
             fps = cap.get(cv2.CAP_PROP_FPS)
-            start_frame = seconds * fps + frames
+            start_frame = int(seconds * fps + frames)
         except ValueError:
             print("Invalid Input.")
             input("Press Enter to exit...")
             sys.exit()
-    if time_code.isdigit():
-        start_frame = int(time_code)
     else:
         print("Invalid Input.")
         input("Press Enter to exit...")
@@ -204,7 +195,6 @@ def generate_vfx_text(
     potential_frames_ranges_with_vfx_text,
     video,
 ):
-    start_logging_errors()
     found_vfx_text = {}
     frames_not_found = []
     print("\n-Reading VFX text-")
@@ -242,9 +232,10 @@ def generate_vfx_text(
                     found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
                         frame_range[1]
                     )
-    print(
-        f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
-    )
+    if frames_not_found:
+        print(
+            f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
+        )
     return found_vfx_text
 
 
