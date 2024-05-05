@@ -23,7 +23,6 @@ def create_dataframe(final_dict):
 def create_xlsx_file(dataframe, video):
     print("\n-Creating Excel file-")
     video_name = video.split(".")[0]
-    images = list_of_pictures("temp/thumbnails")
     writer = pd.ExcelWriter(f"{video_name}.xlsx", engine="xlsxwriter")
     dataframe.to_excel(writer, sheet_name="Sheet1", index=False)
     # dataframe.style.set_properties(**{"text-align": "center"})
@@ -43,8 +42,7 @@ def create_xlsx_file(dataframe, video):
     for index in range(dataframe_length):
         worksheet.set_row_pixels(row=pic_row-1, height=1080*0.25)
         if dataframe.iloc[index]["TEXT"].startswith("VFX"):
-            worksheet.insert_image(f"B{pic_row}", images[pic_index])
-            pic_index += 1
+            worksheet.insert_image(f"B{pic_row}", f"./temp/thumbnails/{dataframe.iloc[index]["FRAME IN"]}.png")
         pic_row += 1
 
     # adjust the column widths based on the content

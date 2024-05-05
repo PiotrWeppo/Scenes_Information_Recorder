@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 import cv2
 from PIL import Image
@@ -79,6 +80,21 @@ def set_video_start_time(video):
     return start_frame
 
 
+def tc_cleanup_from_potential_errors(text):
+    pattern = re.compile(r"(\d{2})")
+    text = "".join(text[0])
+    x = re.findall(pattern, text)
+    return f"{x[0]}:{x[1]}:{x[2]}:{x[3]}"
+
+
+def evenly_spaced_nums_from_range(range_list, q_nums=3):
+    generated_numbers = np.linspace(
+        range_list[0], range_list[1], num=q_nums, endpoint=True, dtype=int
+    )
+    numbers_from_center = generated_numbers[1:-1].tolist()
+    return numbers_from_center
+
+
 def generate_imgs_with_text_from_video(video, start_frame):
     cap = cv2.VideoCapture(video)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame - 1)
@@ -107,16 +123,20 @@ def generate_imgs_with_text_from_video(video, start_frame):
         ret, frame = cap.read()
         if ret == True:
             current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
-            # if current_frame != frame_count:
-            #     print("Error frame")
-            #     sys.exit(0)
-            # print(f"{current_frame}/{length-1}")
             grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, threshold = cv2.threshold(
                 grayscale, 230, 255, cv2.THRESH_BINARY_INV
             )
-            cropped_img_l = threshold[0:500, 0:1100]
-            cropped_img_r = threshold[0:200, 1400:1920]
+            width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+            height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            cropped_img_l = threshold[
+                0 : int(height * 0.30), 0 : int(width * 0.60)
+            ]
+            cropped_img_r = threshold[
+                0 : int(height * 0.2), int(width * 0.75) : int(width)
+            ]
+            # cropped_img_l = threshold[0:300, 0:1100]
+            # cropped_img_r = threshold[0:200, 1400:1920]
             n_white_pix = np.sum(cropped_img_l == 0)
             pbar.set_postfix_str(
                 f"Frames saved: {frames_counter}", refresh=True
@@ -134,44 +154,59 @@ def generate_imgs_with_text_from_video(video, start_frame):
 
         else:
             break
-    # When everything done, release the video capture object
+    
     pbar.close()
     cap.release()
 
-    # Closes all the frames
     cv2.destroyAllWindows()
     return frames_with_embedded_text_id
 
 
-def check_if_vfx_in_found_scenes(scene_list, frames_with_embedded_text_id):
+def check_if_text_in_found_scenes(scene_list, frames_with_embedded_text_id):
     each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
-    potential_frames_ranges_with_vfx_text = [
+    potential_frames_ranges_with_text = [
         frame_range
         for frame_range in each_scene_first_last_frame
-        if (frame_range[1] - 1) in frames_with_embedded_text_id
+        if any(
+            frame in frames_with_embedded_text_id
+            for frame in range(frame_range[0], frame_range[1])
+        )
     ]
     print(
-        f"-Found VFX text in {len(potential_frames_ranges_with_vfx_text)} scenes-"
+        f"-Found potential text in {len(potential_frames_ranges_with_text)} scenes-"
     )
-    return potential_frames_ranges_with_vfx_text
+    return potential_frames_ranges_with_text
 
 
-def generate_thumbnails_for_each_scene(
-    video, potential_frames_ranges_with_vfx_text
-):
+def generate_pictures_for_each_scene(video, potential_frames_ranges_with_text):
     cap = cv2.VideoCapture(video)
-    print("\n-Generating Thumbnails-")
+    print("\n-Generating Pictures-")
     for frame_range in tqdm(
-        potential_frames_ranges_with_vfx_text,
+        potential_frames_ranges_with_text,
         desc="Generated ",
         unit="imgs",
     ):
         begining_frame = frame_range[0]
-        cap.set(cv2.CAP_PROP_POS_FRAMES, begining_frame)
-        found_frame, frame = cap.read()
-        if found_frame:
-            img = cv2.resize(frame, None, fx=0.25, fy=0.25)
-            cv2.imwrite(f"./temp/thumbnails/{begining_frame}.png", img)
+        last_frame = frame_range[1] - 1
+        which_frame_from_loop = 0
+        for frame_number in [begining_frame, last_frame]:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            found_frame, frame = cap.read()
+            if found_frame:
+                if which_frame_from_loop == 0:
+                    img = cv2.resize(frame, None, fx=0.25, fy=0.25)
+                    cv2.imwrite(f"./temp/thumbnails/{frame_number}.png", img)
+                    cv2.imwrite(
+                        f"./temp/first_last_scene_frames/{frame_number}.png",
+                        frame,
+                    )
+                    which_frame_from_loop += 1
+                elif which_frame_from_loop == 1:
+                    cv2.imwrite(
+                        f"./temp/first_last_scene_frames/{frame_number}.png",
+                        frame,
+                    )
+                    which_frame_from_loop -= 1
     cap.release()
     cv2.destroyAllWindows()
 
@@ -192,14 +227,14 @@ def read_text_from_image(image_path):
 
 
 def generate_vfx_text(
-    potential_frames_ranges_with_vfx_text,
+    potential_frames_ranges_with_text,
     video,
 ):
     found_vfx_text = {}
     frames_not_found = []
     print("\n-Reading VFX text-")
     for frame_range in tqdm(
-        potential_frames_ranges_with_vfx_text,
+        potential_frames_ranges_with_text,
         desc="Frames checked",
         unit="frames",
     ):
@@ -214,7 +249,7 @@ def generate_vfx_text(
         except FileNotFoundError as e:
             frames_not_found.append(first_frame_of_scene)
             logging.exception(
-                f"Error with frame {first_frame_of_scene}:\n %s", e
+                f"\nError with frame {first_frame_of_scene}:\n %s", e
             )
             continue
         for text in current_reading_left:
@@ -232,6 +267,125 @@ def generate_vfx_text(
                     found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
                         frame_range[1]
                     )
+    if frames_not_found:
+        print(
+            f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
+        )
+    return found_vfx_text
+
+
+def open_image_convert_and_save(image_path, frame_number):
+    img = Image.open(image_path)
+    width, height = img.size
+    frame = cv2.imread(image_path)
+    grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    _, threshold = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY_INV)
+    cropped_img_r = threshold[
+        0 : int(height * 0.2), int(width * 0.75) : int(width)
+    ]
+    cv2.imwrite(
+        f"./temp/first_last_scene_frames/frame_{frame_number}.png",
+        cropped_img_r,
+    )
+
+
+def n_generate_vfx_text(
+    video,
+    potential_frames_ranges_with_text,
+    frames_with_embedded_text_id,
+):
+    found_vfx_text = {}
+    frames_not_found = []
+    found_vfx_flag = False
+    print("\n-Reading VFX text-")
+    for frame_range in tqdm(
+        potential_frames_ranges_with_text,
+        desc="Frames checked",
+        unit="frames",
+    ):
+        print(f"{frame_range=}")
+        numbers_to_check = evenly_spaced_nums_from_range(frame_range)
+        for frame_id in numbers_to_check:
+            if frame_id in frames_with_embedded_text_id:
+                if found_vfx_flag is True:
+                    found_vfx_flag = False
+                    break
+                if frame_id < frame_range[0]:
+                    continue
+                if frame_id > frame_range[1] - 1:
+                    break
+                try:
+                    image = f"./temp/text_imgs/frame_{frame_id}.png"
+                    text = read_text_from_image(image)
+                    for line in text:
+                        if not line:
+                            continue
+                        if line[0].startswith("VFX"):
+                            found_vfx_flag = True
+                            first_frame_of_scene = frame_range[0]
+                            last_frame_of_scene = frame_range[1] - 1
+
+                            right_first_image = f"./temp/first_last_scene_frames/{first_frame_of_scene}.png"
+                            right_last_image = f"./temp/first_last_scene_frames/{last_frame_of_scene}.png"
+                            try:
+                                open_image_convert_and_save(
+                                    right_first_image, first_frame_of_scene
+                                )
+                                first_frame_tc = read_text_from_image(
+                                    f"./temp/first_last_scene_frames/frame_{first_frame_of_scene}.png"
+                                )
+                                first_frame_tc = (
+                                    tc_cleanup_from_potential_errors(
+                                        first_frame_tc
+                                    )
+                                )
+                            except FileNotFoundError as e:
+                                frames_not_found.append(first_frame_of_scene)
+                                logging.exception(
+                                    f"Error with frame {first_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                                continue
+                            try:
+                                open_image_convert_and_save(
+                                    right_last_image, last_frame_of_scene
+                                )
+                                last_frame_tc = read_text_from_image(
+                                    f"./temp/first_last_scene_frames/frame_{last_frame_of_scene}.png"
+                                )
+                                last_frame_tc = (
+                                    tc_cleanup_from_potential_errors(
+                                        last_frame_tc
+                                    )
+                                )
+                                tc_out = read_tc_add_one_frame(
+                                    last_frame_tc, video
+                                )
+                            except FileNotFoundError as e:
+                                frames_not_found.append(last_frame_of_scene)
+                                logging.exception(
+                                    f"Error with frame {last_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                                continue
+                            if first_frame_of_scene not in found_vfx_text:
+                                found_vfx_text[first_frame_of_scene] = {}
+                                found_vfx_text[first_frame_of_scene][
+                                    "TEXT"
+                                ] = line[0]
+                                found_vfx_text[first_frame_of_scene][
+                                    "TC IN"
+                                ] = first_frame_tc
+                                found_vfx_text[first_frame_of_scene][
+                                    "TC OUT"
+                                ] = tc_out
+                                found_vfx_text[first_frame_of_scene][
+                                    "FRAME OUT"
+                                ] = frame_range[1]
+                except FileNotFoundError as e:
+                    frames_not_found.append(frame_id)
+                    logging.exception(f"Error with frame {frame_id}:\n %s", e)
+                    continue
     if frames_not_found:
         print(
             f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
