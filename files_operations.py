@@ -72,3 +72,6 @@ def delete_folder(*dir_paths):
             shutil.rmtree(d)
         else:
             print(f"The folder {d} does not exist.")
+
+def copy_picture_from_to_folder(source_path, destination_path):
+    shutil.copy(source_path, destination_path)

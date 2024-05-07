@@ -66,7 +66,7 @@ def main():
 
     df = create_dataframe(final_text_dict)
     create_xlsx_file(df, video)
-    # delete_folder("./temp")
+    delete_folder("./temp")
     input("Done.\n\nPress Enter to exit: ")
     sys.exit()
 

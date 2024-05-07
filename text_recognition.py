@@ -352,9 +352,7 @@ def generate_vfx_text(
                     for line in text:
                         if not line:
                             continue
-                        matched_text = match_text(
-                            line[0], beginning_chars="VFX"
-                        )
+                        matched_text = match_text(line[0], beginning_chars="VFX")
                         if matched_text:
                             found_vfx_flag = True
                             first_frame_of_scene = frame_range[0]
@@ -471,7 +469,6 @@ def check_next_frames(frames_with_embedded_text_id, frame, found_adr_text):
                 return found_adr_text
     return found_adr_text
 
-
 def generate_adr_text(video, frames_with_embedded_text_id):
     found_adr_text = {}
     print("\n-Searching for ADR text-")
@@ -514,7 +511,6 @@ def generate_adr_text(video, frames_with_embedded_text_id):
     sorted_dict = {k: found_adr_text[k] for k in sorted(found_adr_text)}
     found_adr_text = remove_all_but_border_cases_found(sorted_dict, video)
     return found_adr_text
-
 
 def remove_all_but_border_cases_found(text_dict, video):
     numbers = text_dict.keys()
