@@ -7,8 +7,6 @@ import pytesseract
 import numpy as np
 from tqdm import tqdm
 
-# pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
-
 
 def convert_current_frame_to_tc(frame_number, fps):
     frame_number = int(frame_number)
@@ -87,12 +85,25 @@ def tc_cleanup_from_potential_errors(text):
     return f"{x[0]}:{x[1]}:{x[2]}:{x[3]}"
 
 
-def evenly_spaced_nums_from_range(range_list, q_nums=3):
+def match_text(text, beginning_chars):
+    pattern = re.compile(beginning_chars + r"\s*(.+)", re.IGNORECASE)
+    match = re.search(pattern, text)
+    if match is None:
+        return None
+    else:
+        return match.group()
+
+
+def evenly_spaced_nums_from_range(
+    range_list, q_nums=3, endpoint=True, nums_with_borders=True
+):
     generated_numbers = np.linspace(
-        range_list[0], range_list[1], num=q_nums, endpoint=True, dtype=int
+        range_list[0], range_list[1], num=q_nums, endpoint=endpoint, dtype=int
     )
-    numbers_from_center = generated_numbers[1:-1].tolist()
-    return numbers_from_center
+    if not nums_with_borders:
+        numbers_from_center = generated_numbers[1:-1].tolist()
+        return numbers_from_center
+    return generated_numbers.tolist()
 
 
 def generate_imgs_with_text_from_video(video, start_frame):
@@ -154,7 +165,7 @@ def generate_imgs_with_text_from_video(video, start_frame):
 
         else:
             break
-    
+
     pbar.close()
     cap.release()
 
@@ -162,27 +173,48 @@ def generate_imgs_with_text_from_video(video, start_frame):
     return frames_with_embedded_text_id
 
 
-def check_if_text_in_found_scenes(scene_list, frames_with_embedded_text_id):
+def check_if_vfx_text_in_found_scenes(
+    scene_list, frames_with_embedded_text_id
+):
     each_scene_first_last_frame = [[int(i[0]), int(i[1])] for i in scene_list]
-    potential_frames_ranges_with_text = [
-        frame_range
-        for frame_range in each_scene_first_last_frame
-        if any(
-            frame in frames_with_embedded_text_id
-            for frame in range(frame_range[0], frame_range[1])
-        )
+    numbers_to_check = [
+        evenly_spaced_nums_from_range(range, q_nums=5, endpoint=False)
+        for range in each_scene_first_last_frame
     ]
+    # potential_frames_ranges_with_vfx_text = [
+    #     frame_range
+    #     for frame_range in each_scene_first_last_frame
+    #     if any(
+    #         frame in frames_with_embedded_text_id
+    #         for frame in range(frame_range[0], frame_range[1])
+    #     )
+    # ]
+    potential_frames_ranges_with_vfx_text = []
+    for sublist in numbers_to_check:
+        if any(frame in frames_with_embedded_text_id for frame in sublist):
+            potential_frames_ranges_with_vfx_text.append(
+                [
+                    each_scene_first_last_frame[
+                        numbers_to_check.index(sublist)
+                    ][0],
+                    each_scene_first_last_frame[
+                        numbers_to_check.index(sublist)
+                    ][1],
+                ]
+            )
     print(
-        f"-Found potential text in {len(potential_frames_ranges_with_text)} scenes-"
+        f"-Found potential text in {len(potential_frames_ranges_with_vfx_text)} scenes-"
     )
-    return potential_frames_ranges_with_text
+    return potential_frames_ranges_with_vfx_text
 
 
-def generate_pictures_for_each_scene(video, potential_frames_ranges_with_text):
+def generate_pictures_for_each_scene(
+    video, potential_frames_ranges_with_vfx_text
+):
     cap = cv2.VideoCapture(video)
     print("\n-Generating Pictures-")
     for frame_range in tqdm(
-        potential_frames_ranges_with_text,
+        potential_frames_ranges_with_vfx_text,
         desc="Generated ",
         unit="imgs",
     ):
@@ -226,52 +258,53 @@ def read_text_from_image(image_path):
     return found_text
 
 
-def generate_vfx_text(
-    potential_frames_ranges_with_text,
-    video,
-):
-    found_vfx_text = {}
-    frames_not_found = []
-    print("\n-Reading VFX text-")
-    for frame_range in tqdm(
-        potential_frames_ranges_with_text,
-        desc="Frames checked",
-        unit="frames",
-    ):
-        first_frame_of_scene = frame_range[0]
-        last_frame_of_scene = frame_range[1] - 1
-        left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
-        right_first_image = f"./temp/tc_imgs/frame_{first_frame_of_scene}.png"
-        right_last_image = f"./temp/tc_imgs/frame_{last_frame_of_scene}.png"
+# def generate_vfx_text(
+#     potential_frames_ranges_with_vfx_text,
+#     video,
+# ):
+#     found_vfx_text = {}
+#     frames_not_found = []
+#     print("\n-Reading VFX text-")
+#     for frame_range in tqdm(
+#         potential_frames_ranges_with_vfx_text,
+#         desc="Frames checked",
+#         unit="frames",
+#     ):
+#         first_frame_of_scene = frame_range[0]
+#         last_frame_of_scene = frame_range[1] - 1
+#         left_first_image = f"./temp/text_imgs/frame_{first_frame_of_scene}.png"
+#         right_first_image = f"./temp/tc_imgs/frame_{first_frame_of_scene}.png"
+#         right_last_image = f"./temp/tc_imgs/frame_{last_frame_of_scene}.png"
 
-        try:
-            current_reading_left = read_text_from_image(left_first_image)
-        except FileNotFoundError as e:
-            frames_not_found.append(first_frame_of_scene)
-            logging.exception(
-                f"\nError with frame {first_frame_of_scene}:\n %s", e
-            )
-            continue
-        for text in current_reading_left:
-            if text[0].startswith("VFX"):
-                current_reading_right = read_text_from_image(right_first_image)
-                last_reading_right = read_text_from_image(right_last_image)
-                tc_out = read_tc_add_one_frame(last_reading_right[0][0], video)
-                if first_frame_of_scene not in found_vfx_text:
-                    found_vfx_text[first_frame_of_scene] = {}
-                    found_vfx_text[first_frame_of_scene]["TEXT"] = text[0]
-                    found_vfx_text[first_frame_of_scene]["TC IN"] = (
-                        current_reading_right[0][0]
-                    )
-                    found_vfx_text[first_frame_of_scene]["TC OUT"] = tc_out
-                    found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
-                        frame_range[1]
-                    )
-    if frames_not_found:
-        print(
-            f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
-        )
-    return found_vfx_text
+#         try:
+#             current_reading_left = read_text_from_image(left_first_image)
+#         except FileNotFoundError as e:
+#             frames_not_found.append(first_frame_of_scene)
+#             logging.exception(
+#                 f"\nError with frame {first_frame_of_scene}:\n %s", e
+#             )
+#             continue
+#         for text in current_reading_left:
+#             matched_text = match_text(text[0], beginning_chars="VFX")
+#             if matched_text:
+#                 current_reading_right = read_text_from_image(right_first_image)
+#                 last_reading_right = read_text_from_image(right_last_image)
+#                 tc_out = read_tc_add_one_frame(last_reading_right[0][0], video)
+#                 if first_frame_of_scene not in found_vfx_text:
+#                     found_vfx_text[first_frame_of_scene] = {}
+#                     found_vfx_text[first_frame_of_scene]["TEXT"] = text[0]
+#                     found_vfx_text[first_frame_of_scene]["TC IN"] = (
+#                         current_reading_right[0][0]
+#                     )
+#                     found_vfx_text[first_frame_of_scene]["TC OUT"] = tc_out
+#                     found_vfx_text[first_frame_of_scene]["FRAME OUT"] = (
+#                         frame_range[1]
+#                     )
+#     if frames_not_found:
+#         print(
+#             f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
+#         )
+#     return found_vfx_text
 
 
 def open_image_convert_and_save(image_path, frame_number):
@@ -289,9 +322,9 @@ def open_image_convert_and_save(image_path, frame_number):
     )
 
 
-def n_generate_vfx_text(
+def generate_vfx_text(
     video,
-    potential_frames_ranges_with_text,
+    potential_frames_ranges_with_vfx_text,
     frames_with_embedded_text_id,
 ):
     found_vfx_text = {}
@@ -299,12 +332,11 @@ def n_generate_vfx_text(
     found_vfx_flag = False
     print("\n-Reading VFX text-")
     for frame_range in tqdm(
-        potential_frames_ranges_with_text,
+        potential_frames_ranges_with_vfx_text,
         desc="Frames checked",
         unit="frames",
     ):
-        print(f"{frame_range=}")
-        numbers_to_check = evenly_spaced_nums_from_range(frame_range)
+        numbers_to_check = evenly_spaced_nums_from_range(frame_range, q_nums=5)
         for frame_id in numbers_to_check:
             if frame_id in frames_with_embedded_text_id:
                 if found_vfx_flag is True:
@@ -320,7 +352,10 @@ def n_generate_vfx_text(
                     for line in text:
                         if not line:
                             continue
-                        if line[0].startswith("VFX"):
+                        matched_text = match_text(
+                            line[0], beginning_chars="VFX"
+                        )
+                        if matched_text:
                             found_vfx_flag = True
                             first_frame_of_scene = frame_range[0]
                             last_frame_of_scene = frame_range[1] - 1
@@ -372,7 +407,7 @@ def n_generate_vfx_text(
                                 found_vfx_text[first_frame_of_scene] = {}
                                 found_vfx_text[first_frame_of_scene][
                                     "TEXT"
-                                ] = line[0]
+                                ] = matched_text
                                 found_vfx_text[first_frame_of_scene][
                                     "TC IN"
                                 ] = first_frame_tc
@@ -393,31 +428,91 @@ def n_generate_vfx_text(
     return found_vfx_text
 
 
-def generate_adr_text(frames_with_embedded_text_id, video):
+def check_previous_frames(frames_with_embedded_text_id, frame, found_adr_text):
+    index = frames_with_embedded_text_id.index(frame)
+    for curr_frame in frames_with_embedded_text_id[index - 1 :: -1]:
+        image = f"./temp/text_imgs/frame_{curr_frame}.png"
+        text = read_text_from_image(image)
+        for line in text:
+            if not line:
+                break
+            matched_text = match_text(line[0], beginning_chars="ADR")
+            if matched_text:
+                right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
+                frame_tc = read_text_from_image(right_image)
+                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
+                if curr_frame not in found_adr_text:
+                    found_adr_text[curr_frame] = {}
+                    found_adr_text[curr_frame]["TEXT"] = matched_text
+                    found_adr_text[curr_frame]["TC"] = frame_tc
+            else:
+                return found_adr_text
+    return found_adr_text
+
+
+def check_next_frames(frames_with_embedded_text_id, frame, found_adr_text):
+    index = frames_with_embedded_text_id.index(frame)
+    for curr_frame in frames_with_embedded_text_id[index + 1 :]:
+        image = f"./temp/text_imgs/frame_{curr_frame}.png"
+        text = read_text_from_image(image)
+        for line in text:
+            if not line:
+                break
+            matched_text = match_text(line[0], beginning_chars="ADR")
+            if matched_text:
+                right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
+                frame_tc = read_text_from_image(right_image)
+                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
+                if curr_frame not in found_adr_text:
+                    found_adr_text[curr_frame] = {}
+                    found_adr_text[curr_frame]["TEXT"] = matched_text
+                    found_adr_text[curr_frame]["TC"] = frame_tc
+            else:
+                return found_adr_text
+    return found_adr_text
+
+
+def generate_adr_text(video, frames_with_embedded_text_id):
     found_adr_text = {}
     print("\n-Searching for ADR text-")
-    pbar = tqdm(
-        total=len(frames_with_embedded_text_id),
+    # pbar = tqdm(
+    #     total=len(frames_with_embedded_text_id),
+    #     desc="Frames checked",
+    #     unit="frames",
+    # )
+    for frame in tqdm(
+        frames_with_embedded_text_id[::15],
         desc="Frames checked",
         unit="frames",
-    )
-
-    for frame in frames_with_embedded_text_id:
+    ):
+        # print(frame)
         left_image = f"./temp/text_imgs/frame_{frame}.png"
-        right_image = f"./temp/tc_imgs/frame_{frame}.png"
-        current_reading_left = read_text_from_image(left_image)
-        for text in current_reading_left:
-            if text[0].startswith("ADR"):
-                current_reading_right = read_text_from_image(right_image)
-                pbar.set_postfix_str(
-                    f"Last text found: {text[0]}", refresh=True
-                )
+        text = read_text_from_image(left_image)
+        for line in text:
+            if not line:
+                continue
+            matched_text = match_text(line[0], beginning_chars="ADR")
+            if matched_text:
+                right_image = f"./temp/tc_imgs/frame_{frame}.png"
+                frame_tc = read_text_from_image(right_image)
+                # pbar.set_postfix_str(
+                #     f"Last text found: {text[0]}", refresh=True
+                # )
+                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
                 if frame not in found_adr_text:
                     found_adr_text[frame] = {}
-                    found_adr_text[frame]["TEXT"] = text[0]
-                    found_adr_text[frame]["TC"] = current_reading_right[0][0]
-        pbar.update(1)
-    found_adr_text = remove_all_but_border_cases_found(found_adr_text, video)
+                    found_adr_text[frame]["TEXT"] = matched_text
+                    found_adr_text[frame]["TC"] = frame_tc
+                    previous_frames = check_previous_frames(
+                        frames_with_embedded_text_id, frame, found_adr_text
+                    )
+                    next_frames = check_next_frames(
+                        frames_with_embedded_text_id, frame, found_adr_text
+                    )
+                    found_adr_text.update({**previous_frames, **next_frames})
+        # pbar.update(1)
+    sorted_dict = {k: found_adr_text[k] for k in sorted(found_adr_text)}
+    found_adr_text = remove_all_but_border_cases_found(sorted_dict, video)
     return found_adr_text
 
 

@@ -2,14 +2,14 @@ import logging
 import sys
 from text_recognition import (
     generate_imgs_with_text_from_video,
-    check_if_text_in_found_scenes,
+    check_if_vfx_text_in_found_scenes,
     generate_pictures_for_each_scene,
-    n_generate_vfx_text,
+    generate_vfx_text,
     generate_adr_text,
     merge_dicts,
     add_real_timestamps,
     set_video_start_time,
-)
+)      
 from files_operations import (
     find_video_file,
     create_folder,
@@ -41,8 +41,8 @@ def main():
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
     logging.debug(f"scene_list=\n{scene_list}\n")
-    
-    frames_ranges_with_potential_text = check_if_text_in_found_scenes(
+
+    frames_ranges_with_potential_text = check_if_vfx_text_in_found_scenes(
         scene_list, frames_with_embedded_text_id
     )
     logging.debug(
@@ -50,12 +50,12 @@ def main():
     )
     # print(frames_with_embedded_text_id)
     generate_pictures_for_each_scene(video, frames_ranges_with_potential_text)
-    found_vfx_text = n_generate_vfx_text(
+    found_vfx_text = generate_vfx_text(
         video, frames_ranges_with_potential_text, frames_with_embedded_text_id
     )
     logging.debug(f"found_vfx_text=\n{found_vfx_text}\n")
 
-    found_adr_text = generate_adr_text(frames_with_embedded_text_id, video)
+    found_adr_text = generate_adr_text(video, frames_with_embedded_text_id)
     logging.debug(f"found_adr_text=\n{found_adr_text}\n")
 
     merged_text_dict = merge_dicts(found_vfx_text, found_adr_text)
