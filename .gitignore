@@ -1,0 +1,35 @@
+# Build and Release Folders
+bin-debug/
+bin-release/
+[Oo]bj/
+[Bb]in/
+
+# Other files and folders
+.settings/
+*.pdf
+*.mp4
+*.mov
+*.csv
+*.txt
+*.xlsx
+*.ods
+Scene_pictures
+Scene_thumbnails
+temp
+
+#Pipenv files
+Pipfile
+Pipfile.lock
+
+# Executables
+*.swf
+*.air
+*.ipa
+*.apk
+
+# py files
+tempCodeRunnerFile.py
+
+# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
+# should NOT be excluded as they contain compiler settings and other important
+# information for Eclipse / Flash Builder.
