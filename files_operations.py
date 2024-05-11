@@ -20,9 +20,7 @@ def find_video_file():
         case _:
             for i, file in enumerate(files_grabbed):
                 print("|", i + 1, "|", file)
-            choice = input(
-                "\nWhich file to open? Type corresponding number: "
-            )
+            choice = input("\nWhich file to open? Type corresponding number: ")
             try:
                 os.system("cls||clear")
                 if int(choice) == 0:
@@ -73,5 +71,19 @@ def delete_folder(*dir_paths):
         else:
             print(f"The folder {d} does not exist.")
 
+
 def copy_picture_from_to_folder(source_path, destination_path):
     shutil.copy(source_path, destination_path)
+
+
+def delete_temp_folder_on_error_and_exit(optional_print=None):
+    if optional_print:
+        print(optional_print)
+    choice = input(
+        "\nAn error occurred. Check log file. Delete temporary files before closing? (y/n): "
+    )
+    if choice.lower() in ["y", "yes", ""]:
+        delete_folder("./temp")
+        print("\nTemporary files deleted.")
+    input("Press Enter to exit: ")
+    sys.exit()

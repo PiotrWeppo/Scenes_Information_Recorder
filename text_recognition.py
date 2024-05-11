@@ -7,6 +7,8 @@ import pytesseract
 import numpy as np
 from tqdm import tqdm
 
+from files_operations import delete_temp_folder_on_error_and_exit
+
 
 def convert_current_frame_to_tc(frame_number, fps):
     frame_number = int(frame_number)
@@ -57,18 +59,14 @@ def set_video_start_time(video):
             fps = cap.get(cv2.CAP_PROP_FPS)
             start_frame = int(seconds * fps + frames)
         except ValueError:
-            print("Invalid Input.")
-            input("Press Enter to exit...")
-            sys.exit()
+            delete_temp_folder_on_error_and_exit("Invalid Input.")
     else:
-        print("Invalid Input.")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit("Invalid Input.")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if start_frame > length:
-        print("Frame number outside of video length.")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit(
+            "Frame number outside of video length."
+        )
     cap.release()
     return start_frame
 
@@ -124,9 +122,7 @@ def generate_imgs_with_text_from_video(video, start_frame):
     # # frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
-        print("Error opening video file")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit("Error opening video file")
     print("\n-Saving frames containing potential text-")
     pbar = tqdm(
         total=length - 1 - start_frame,
