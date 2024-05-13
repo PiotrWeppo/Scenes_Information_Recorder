@@ -9,11 +9,12 @@ from text_recognition import (
     merge_dicts,
     add_real_timestamps,
     set_video_start_time,
-)      
+)
 from files_operations import (
     find_video_file,
     create_folder,
     delete_folder,
+    delete_temp_folder_on_error_and_exit,
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
@@ -76,6 +77,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.exception("Main crashed. Error below:\n\n%s", e)
-        print("An error occurred. Check the log file for more information.")
-        input("Press Enter to exit: ")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit("Main crashed.")

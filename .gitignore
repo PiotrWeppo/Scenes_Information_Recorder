@@ -13,9 +13,7 @@ bin-release/
 *.txt
 *.xlsx
 *.ods
-Scene_pictures
-Scene_thumbnails
-temp
+*/*
 
 #Pipenv files
 Pipfile

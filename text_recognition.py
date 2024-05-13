@@ -7,6 +7,8 @@ import pytesseract
 import numpy as np
 from tqdm import tqdm
 
+from files_operations import delete_temp_folder_on_error_and_exit
+
 
 def convert_current_frame_to_tc(frame_number, fps):
     frame_number = int(frame_number)
@@ -27,24 +29,19 @@ def convert_current_frame_to_tc(frame_number, fps):
 def read_tc_add_one_frame(time_str, video):
     cap = cv2.VideoCapture(video)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    try:
-        hours, minutes, seconds, frames = map(int, time_str.split(":"))
-        frames += 1
-        if frames == fps:
-            frames = 0
-            seconds += 1
-        if seconds == 60:
-            seconds = 0
-            minutes += 1
-        if minutes == 60:
-            minutes = 0
-            hours += 1
-        cap.release()
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
-    except ValueError:
-        print("Invalid Input")
-        input("Press Enter to exit...")
-        sys.exit()
+    hours, minutes, seconds, frames = map(int, time_str.split(":"))
+    frames += 1
+    if frames == fps:
+        frames = 0
+        seconds += 1
+    if seconds == 60:
+        seconds = 0
+        minutes += 1
+    if minutes == 60:
+        minutes = 0
+        hours += 1
+    cap.release()
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
 
 
 def set_video_start_time(video):
@@ -62,27 +59,33 @@ def set_video_start_time(video):
             fps = cap.get(cv2.CAP_PROP_FPS)
             start_frame = int(seconds * fps + frames)
         except ValueError:
-            print("Invalid Input.")
-            input("Press Enter to exit...")
-            sys.exit()
+            delete_temp_folder_on_error_and_exit("Invalid Input.")
     else:
-        print("Invalid Input.")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit("Invalid Input.")
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if start_frame > length:
-        print("Frame number outside of video length.")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit(
+            "Frame number outside of video length."
+        )
     cap.release()
     return start_frame
 
 
-def tc_cleanup_from_potential_errors(text):
+def tc_cleanup_from_potential_errors(tc_text, frame_number):
+    if not tc_text or not tc_text[0]:
+        return "EMPTY TC"
     pattern = re.compile(r"(\d{2})")
-    text = "".join(text[0])
-    x = re.findall(pattern, text)
-    return f"{x[0]}:{x[1]}:{x[2]}:{x[3]}"
+    joined_text = "".join(tc_text[0])
+    try:
+        x = re.findall(pattern, joined_text)
+        formated_text = f"{x[0]}:{x[1]}:{x[2]}:{x[3]}"
+    except IndexError as e:
+        logging.exception(
+            f"Error with frame {frame_number}. Trying to format and clean TC: '{joined_text}'.\n%s",
+            e,
+        )
+        return "WRONG TC"
+    return formated_text
 
 
 def match_text(text, beginning_chars):
@@ -119,9 +122,7 @@ def generate_imgs_with_text_from_video(video, start_frame):
     # # frame_count = 0
     frames_with_embedded_text_id = []
     if cap.isOpened() == False:
-        print("Error opening video file")
-        input("Press Enter to exit...")
-        sys.exit()
+        delete_temp_folder_on_error_and_exit("Error opening video file")
     print("\n-Saving frames containing potential text-")
     pbar = tqdm(
         total=length - 1 - start_frame,
@@ -136,7 +137,7 @@ def generate_imgs_with_text_from_video(video, start_frame):
             current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
             grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, threshold = cv2.threshold(
-                grayscale, 230, 255, cv2.THRESH_BINARY_INV
+                grayscale, 240, 255, cv2.THRESH_BINARY_INV
             )
             width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
             height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -336,7 +337,9 @@ def generate_vfx_text(
         desc="Frames checked",
         unit="frames",
     ):
-        numbers_to_check = evenly_spaced_nums_from_range(frame_range, q_nums=5)
+        numbers_to_check = evenly_spaced_nums_from_range(
+            frame_range, q_nums=5, endpoint=False
+        )
         for frame_id in numbers_to_check:
             if frame_id in frames_with_embedded_text_id:
                 if found_vfx_flag is True:
@@ -352,7 +355,9 @@ def generate_vfx_text(
                     for line in text:
                         if not line:
                             continue
-                        matched_text = match_text(line[0], beginning_chars="VFX")
+                        matched_text = match_text(
+                            line[0], beginning_chars="VFX"
+                        )
                         if matched_text:
                             found_vfx_flag = True
                             first_frame_of_scene = frame_range[0]
@@ -369,7 +374,8 @@ def generate_vfx_text(
                                 )
                                 first_frame_tc = (
                                     tc_cleanup_from_potential_errors(
-                                        first_frame_tc
+                                        tc_text=first_frame_tc,
+                                        frame_number=first_frame_of_scene,
                                     )
                                 )
                             except FileNotFoundError as e:
@@ -378,7 +384,6 @@ def generate_vfx_text(
                                     f"Error with frame {first_frame_of_scene}:\n %s",
                                     e,
                                 )
-                                continue
                             try:
                                 open_image_convert_and_save(
                                     right_last_image, last_frame_of_scene
@@ -388,7 +393,8 @@ def generate_vfx_text(
                                 )
                                 last_frame_tc = (
                                     tc_cleanup_from_potential_errors(
-                                        last_frame_tc
+                                        tc_text=last_frame_tc,
+                                        frame_number=last_frame_of_scene,
                                     )
                                 )
                                 tc_out = read_tc_add_one_frame(
@@ -400,7 +406,13 @@ def generate_vfx_text(
                                     f"Error with frame {last_frame_of_scene}:\n %s",
                                     e,
                                 )
-                                continue
+                                tc_out = last_frame_tc
+                            except ValueError as e:
+                                logging.exception(
+                                    f"Error with frame {last_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                                tc_out = last_frame_tc
                             if first_frame_of_scene not in found_vfx_text:
                                 found_vfx_text[first_frame_of_scene] = {}
                                 found_vfx_text[first_frame_of_scene][
@@ -438,7 +450,15 @@ def check_previous_frames(frames_with_embedded_text_id, frame, found_adr_text):
             if matched_text:
                 right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
                 frame_tc = read_text_from_image(right_image)
-                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
+                try:
+                    frame_tc = tc_cleanup_from_potential_errors(
+                        tc_text=frame_tc, frame_number=curr_frame
+                    )
+                except ValueError as e:
+                    logging.exception(
+                        f"Error with frame {curr_frame}:\n %s", e
+                    )
+                    frame_tc = "WRONG TC"
                 if curr_frame not in found_adr_text:
                     found_adr_text[curr_frame] = {}
                     found_adr_text[curr_frame]["TEXT"] = matched_text
@@ -460,7 +480,15 @@ def check_next_frames(frames_with_embedded_text_id, frame, found_adr_text):
             if matched_text:
                 right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
                 frame_tc = read_text_from_image(right_image)
-                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
+                try:
+                    frame_tc = tc_cleanup_from_potential_errors(
+                        tc_text=frame_tc, frame_number=curr_frame
+                    )
+                except ValueError as e:
+                    logging.exception(
+                        f"Error with frame {curr_frame}:\n %s", e
+                    )
+                    frame_tc = "WRONG TC"
                 if curr_frame not in found_adr_text:
                     found_adr_text[curr_frame] = {}
                     found_adr_text[curr_frame]["TEXT"] = matched_text
@@ -468,6 +496,7 @@ def check_next_frames(frames_with_embedded_text_id, frame, found_adr_text):
             else:
                 return found_adr_text
     return found_adr_text
+
 
 def generate_adr_text(video, frames_with_embedded_text_id):
     found_adr_text = {}
@@ -495,7 +524,13 @@ def generate_adr_text(video, frames_with_embedded_text_id):
                 # pbar.set_postfix_str(
                 #     f"Last text found: {text[0]}", refresh=True
                 # )
-                frame_tc = tc_cleanup_from_potential_errors(frame_tc)
+                try:
+                    frame_tc = tc_cleanup_from_potential_errors(
+                        tc_text=frame_tc, frame_number=frame
+                    )
+                except ValueError as e:
+                    logging.exception(f"Error with frame {frame}:\n %s", e)
+                    frame_tc = "WRONG TC"
                 if frame not in found_adr_text:
                     found_adr_text[frame] = {}
                     found_adr_text[frame]["TEXT"] = matched_text
@@ -511,6 +546,7 @@ def generate_adr_text(video, frames_with_embedded_text_id):
     sorted_dict = {k: found_adr_text[k] for k in sorted(found_adr_text)}
     found_adr_text = remove_all_but_border_cases_found(sorted_dict, video)
     return found_adr_text
+
 
 def remove_all_but_border_cases_found(text_dict, video):
     numbers = text_dict.keys()
