@@ -39,13 +39,13 @@ def create_xlsx_file(dataframe, video):
     pic_row = 2
     dataframe_length = len(dataframe.index)
     worksheet.set_column_pixels(first_col=1, last_col=1, width=1920*0.25)
-    create_folder(f'./"{video}" VFX Pictures')
+    create_folder(f"./'{video}' VFX Pictures")
     for index in range(dataframe_length):
         worksheet.set_row_pixels(row=pic_row-1, height=1080*0.25)
         if dataframe.iloc[index]["TEXT"].startswith("VFX"):
-            worksheet.insert_image(f"B{pic_row}", f"./temp/thumbnails/{dataframe.iloc[index]["FRAME IN"]}.png")
+            worksheet.insert_image(f"B{pic_row}", f"./temp/thumbnails/{dataframe.iloc[index]['FRAME IN']}.png")
             source_path = f"./temp/first_last_scene_frames/{dataframe.iloc[index]['FRAME IN']}.png"
-            destination_path = f'./"{video}" VFX Pictures/{dataframe.iloc[index]["FRAME IN"]}.png'
+            destination_path = f"./'{video}' VFX Pictures/{dataframe.iloc[index]['FRAME IN']}.png"
             copy_picture_from_to_folder(source_path, destination_path)
         pic_row += 1
 
