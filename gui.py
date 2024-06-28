@@ -19,8 +19,30 @@ class AppGui:
         self.submit_btn3 = None
         self.check_var = None
         self.main_frame = None
+        self.video_sources = None
+        self.radio_value = None
+        self.scale_value = None
 
-    def create_main_screen(self):
+    def create_list_of_video_sources(self):
+        self.radio_value = tk.StringVar(value=self.video_sources[0])
+        for i, file in enumerate(self.video_sources):
+            radio_btn = tk.Radiobutton(
+                self.main_frame,
+                text=file,
+                variable=self.radio_value,
+                value=file,
+            )
+            radio_btn.grid(row=i + 2, column=0)
+        next_empty_row = len(self.video_sources) + 3
+        return next_empty_row
+
+    def get_or_init_cap(self, video_path):
+        if self.cap is None or not self.cap.isOpened():
+            self.cap = cv2.VideoCapture(video_path)
+        return self.cap
+
+    def create_main_screen(self, video_names):
+        self.video_sources = video_names
         self.main_window = tk.Tk()
         self.main_window.title("Scenes Information Recorder")
         self.main_window.resizable(0, 0)
@@ -32,26 +54,24 @@ class AppGui:
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.rowconfigure(0, weight=1)
 
-        self.cap = self.get_or_init_cap()
-
         message = tk.Label(self.main_frame, text="Choose video file:")
         message.grid(row=1, column=0)
 
-        self.radio_value = tk.StringVar(value="Option 1")
-        radio1 = tk.Radiobutton(
-            self.main_frame,
-            text="Option 1",
-            variable=self.radio_value,
-            value="Option 1",
-        )
-        radio1.grid(row=2, column=0)
-        radio2 = tk.Radiobutton(
-            self.main_frame,
-            text="Option 2",
-            variable=self.radio_value,
-            value="Option 2",
-        )
-        radio2.grid(row=3, column=0)
+        next_empty_row = self.create_list_of_video_sources()
+        # radio1 = tk.Radiobutton(
+        #     self.main_frame,
+        #     text="Option 1",
+        #     variable=self.radio_value,
+        #     value="Option 1",
+        # )
+        # radio1.grid(row=2, column=0)
+        # radio2 = tk.Radiobutton(
+        #     self.main_frame,
+        #     text="Option 2",
+        #     variable=self.radio_value,
+        #     value="Option 2",
+        # )
+        # radio2.grid(row=3, column=0)
 
         self.check_var = tk.IntVar()
         check_btn = tk.Checkbutton(
@@ -59,7 +79,8 @@ class AppGui:
             text="Does the film start with a title card?",
             variable=self.check_var,
         )
-        check_btn.grid(row=4, column=0)
+        check_btn.grid(row=next_empty_row, column=0)
+        next_empty_row += 1
 
         submit_btn = tk.Button(
             self.main_frame,
@@ -67,14 +88,9 @@ class AppGui:
             command=self.create_second_screen,
             font=("Arial", 10, "bold"),
         )
-        submit_btn.grid(row=5, column=0, pady=10)
+        submit_btn.grid(row=next_empty_row, column=0, pady=10)
         self.center_window()
         self.main_window.mainloop()
-
-    def get_or_init_cap(self, video_path="AM_102.mov"):
-        if self.cap is None or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(video_path)
-        return self.cap
 
     def clear_frame(self):
         for widget in self.main_frame.winfo_children():
@@ -102,6 +118,8 @@ class AppGui:
                 print("Failed to read the first frame.")
 
     def create_second_screen(self):
+        self.cap = self.get_or_init_cap(self.radio_value.get())
+        self.video_name = self.radio_value.get()
         self.clear_frame()
         if self.check_var.get():
             title_label_second = tk.Label(
@@ -127,7 +145,7 @@ class AppGui:
             self.show_first_frame()
 
             # Shared IntVar for Scale and Entry
-            scale_value = tk.IntVar(value=0)
+            self.scale_value = tk.IntVar(value=0)
 
             second_screen_frame = tk.Frame(self.main_frame)
             second_screen_frame.grid(
@@ -142,6 +160,7 @@ class AppGui:
                 from_=0,
                 to=(max_frames - 1),
                 orient=tk.HORIZONTAL,
+                variable=self.scale_value,
             )
             scale_second_screen.grid(row=0, column=1, sticky="ew")
 
@@ -220,7 +239,9 @@ class AppGui:
             buttons_frame2.grid_columnconfigure(0, weight=1)
             buttons_frame2.grid_columnconfigure(1, weight=1)
 
-            entry_box = tk.Entry(self.main_frame, textvariable=scale_value)
+            entry_box = tk.Entry(
+                self.main_frame, textvariable=self.scale_value
+            )
             entry_box.grid(row=5, column=0, sticky="ew", padx=400)
 
             def validate_entry(*args):
@@ -347,6 +368,14 @@ class AppGui:
             or len(self.tc_picture_clicks) != 2
         ):
             self.show_popup()
+        else:
+            self.text_area = self.calculate_rectangle_corners(
+                self.text_picture_clicks
+            )
+            self.tc_area = self.calculate_rectangle_corners(
+                self.tc_picture_clicks
+            )
+            self.main_window.destroy()
 
     def show_popup(self):
         popup = tk.Toplevel()
@@ -459,6 +488,24 @@ class AppGui:
             frame = ImageTk.PhotoImage(image=frame)
             self.video_label.configure(image=frame)
             self.video_label.image = frame
+    
+    def calculate_rectangle_corners(self, clicks):
+        """Calculate all four corners of the rectangle."""
+        x1, y1 = clicks[0]
+        x2, y2 = clicks[1]
+        
+        min_x = min(x1, x2)
+        max_x = max(x1, x2)
+        min_y = min(y1, y2)
+        max_y = max(y1, y2)
+
+        top_left = (min_x, min_y)
+        top_right = (max_x, min_y)
+        bottom_left = (min_x, max_y)
+        bottom_right = (max_x, max_y)
+
+        rectangle_corners = [top_left, top_right, bottom_right, bottom_left]
+        return rectangle_corners
 
     def center_window(self):
         """Center the window on the screen."""

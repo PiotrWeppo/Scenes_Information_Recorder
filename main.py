@@ -1,5 +1,6 @@
 import logging
 import sys
+from gui import AppGui
 from text_recognition import (
     generate_imgs_with_text_from_video,
     check_if_vfx_text_in_found_scenes,
@@ -23,9 +24,21 @@ from info_logger import start_logging_info
 
 def main():
     print("Welcome to the VFX/ADR text detection program.\n")
-    video = find_video_file()
+    gui = AppGui()
+    video_names = find_video_file()
+    gui.create_main_screen(video_names)
+    video = gui.video_name
     start_logging_info(video)
-    start_frame = set_video_start_time(video)
+    if gui.scale_value is not None:
+        start_time = gui.scale_value.get()
+    else:
+        start_time = 0
+    text_area = gui.text_area
+    tc_area = gui.tc_area
+    print(f"start_time={start_time}")
+    print(f"text_area={text_area}")
+    print(f"tc_area={tc_area}")
+    start_frame = set_video_start_time(video, start_time)
     create_folder(
         "./temp/text_imgs",
         "./temp/tc_imgs",
@@ -33,7 +46,7 @@ def main():
         "./temp/first_last_scene_frames",
     )
     frames_with_embedded_text_id = generate_imgs_with_text_from_video(
-        video, start_frame
+        video, start_frame, text_area=text_area, tc_area=tc_area
     )
     logging.debug(
         f"frames_with_embedded_text_id=\n{frames_with_embedded_text_id}\n"
@@ -41,7 +54,7 @@ def main():
     scene_list = detect_all_scenes(video)
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
-    logging.debug(f"scene_list=\n{scene_list}\n")
+    logging.debug(f"scene_list=\n{scene_list}\n")   
 
     frames_ranges_with_potential_text = check_if_vfx_text_in_found_scenes(
         scene_list, frames_with_embedded_text_id

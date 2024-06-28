@@ -10,33 +10,12 @@ def find_video_file():
     files_grabbed = []
     for files in types:
         files_grabbed.extend(glob.glob(files))
-    match len(files_grabbed):
-        case 0:
-            print("\nNo video files found.")
-            input("Press Enter to exit...")
-            sys.exit()
-        case 1:
-            return files_grabbed[0]
-        case _:
-            for i, file in enumerate(files_grabbed):
-                print("|", i + 1, "|", file)
-            choice = input("\nWhich file to open? Type corresponding number: ")
-            try:
-                os.system("cls||clear")
-                if int(choice) == 0:
-                    print("\nNumber outside of the list.")
-                    input("Press Enter to exit...")
-                    sys.exit()
-                print(f"Opening {files_grabbed[int(choice) - 1]}")
-                return files_grabbed[int(choice) - 1]
-            except IndexError:
-                print("\nNumber outside of the list.")
-                input("Press Enter to exit...")
-                sys.exit()
-            except ValueError:
-                print("\nEmpty or wrong input.")
-                input("Press Enter to exit...")
-                sys.exit()
+    if len(files_grabbed) == 0:
+        print("\nNo video files found.")
+        input("Press Enter to exit...")
+        sys.exit()
+    else:
+        return files_grabbed
 
 
 # def list_of_all_scene_pictures(folder_name):

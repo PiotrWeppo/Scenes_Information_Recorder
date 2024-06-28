@@ -44,11 +44,13 @@ def read_tc_add_one_frame(time_str, video):
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
 
 
-def set_video_start_time(video):
+def set_video_start_time(video, time_code):
+    # TODO Connect to the gui
+    time_code = str(time_code)
     cap = cv2.VideoCapture(video)
-    time_code = input(
-        "\nPress Enter or set video starting point (Seconds:Frames or StartingFrame): "
-    )
+    # time_code = input(
+    #     "\nPress Enter or set video starting point (Seconds:Frames or StartingFrame): "
+    # )
     if time_code == "":
         return 0
     if time_code.isdigit():
@@ -109,9 +111,9 @@ def evenly_spaced_nums_from_range(
     return generated_numbers.tolist()
 
 
-def generate_imgs_with_text_from_video(video, start_frame):
+def generate_imgs_with_text_from_video(video, start_frame, text_area, tc_area):
     cap = cv2.VideoCapture(video)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame - 1)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     # print("Position: ", int(cap.get(cv2.CAP_PROP_POS_FRAMES)))
     # Check if camera opened successfully
@@ -137,15 +139,15 @@ def generate_imgs_with_text_from_video(video, start_frame):
             current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
             grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _, threshold = cv2.threshold(
-                grayscale, 240, 255, cv2.THRESH_BINARY_INV
+                grayscale, 245, 255, cv2.THRESH_BINARY_INV
             )
-            width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-            height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            top_left, _, bottom_right, _ = text_area
             cropped_img_l = threshold[
-                0 : int(height * 0.30), 0 : int(width * 0.60)
+                top_left[1] : bottom_right[1], top_left[0] : bottom_right[0]
             ]
+            top_left, _, bottom_right, _ = tc_area
             cropped_img_r = threshold[
-                0 : int(height * 0.2), int(width * 0.75) : int(width)
+                top_left[1] : bottom_right[1], top_left[0] : bottom_right[0]
             ]
             # cropped_img_l = threshold[0:300, 0:1100]
             # cropped_img_r = threshold[0:200, 1400:1920]
@@ -366,6 +368,7 @@ def generate_vfx_text(
                             right_first_image = f"./temp/first_last_scene_frames/{first_frame_of_scene}.png"
                             right_last_image = f"./temp/first_last_scene_frames/{last_frame_of_scene}.png"
                             try:
+                                #TODO look into it
                                 open_image_convert_and_save(
                                     right_first_image, first_frame_of_scene
                                 )
@@ -565,7 +568,14 @@ def remove_all_but_border_cases_found(text_dict, video):
     if keys_series:
         first_and_last_key.append((keys_series[0], keys_series[-1]))
     for ranges in first_and_last_key:
-        tc_out = read_tc_add_one_frame(text_dict[ranges[1]]["TC"], video)
+        try:
+            tc_out = read_tc_add_one_frame(text_dict[ranges[1]]["TC"], video)
+        except ValueError as e:
+            logging.exception(
+                "Error with frame",
+                e,
+            )
+            tc_out = text_dict[ranges[1]]["TC"]
         new_adr_dict[ranges[0]] = {}
         new_adr_dict[ranges[0]]["TEXT"] = text_dict[ranges[0]]["TEXT"]
         new_adr_dict[ranges[0]]["TC IN"] = text_dict[ranges[0]]["TC"]
