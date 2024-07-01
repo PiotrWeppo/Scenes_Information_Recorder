@@ -18,10 +18,6 @@ def find_video_file():
         return files_grabbed
 
 
-# def list_of_all_scene_pictures(folder_name):
-#     return sorted(glob.glob(f"{folder_name}/*.png"))
-
-
 def list_of_pictures(folder_name):
     files = glob.glob(os.path.join(folder_name, "*.png"))
     files.sort(
@@ -64,5 +60,5 @@ def delete_temp_folder_on_error_and_exit(optional_print=None):
     if choice.lower() in ["y", "yes", ""]:
         delete_folder("./temp")
         print("\nTemporary files deleted.")
-    input("Press Enter to exit: ")
+    input("No files deleted. Press Enter to exit: ")
     sys.exit()

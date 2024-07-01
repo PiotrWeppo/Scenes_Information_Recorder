@@ -520,5 +520,6 @@ class AppGui:
 
 
 if __name__ == "__main__":
-    gui = AppGui()
-    gui.create_main_screen()
+    pass
+    # gui = AppGui()
+    # gui.create_main_screen()
