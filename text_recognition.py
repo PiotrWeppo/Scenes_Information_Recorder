@@ -1,3 +1,8 @@
+"""Module for text recognition in a video.
+It generates pictures with text from a video, detects VFX and ADR text,
+and generates a dictionary with the results."""
+
+from typing import List, Tuple, Dict
 import logging
 import re
 import cv2
@@ -7,20 +12,48 @@ import numpy as np
 from tqdm import tqdm
 
 from files_operations import delete_temp_folder_on_error_and_exit
+from scenedetect.frame_timecode import FrameTimecode
 
 
 class TextRecognition:
-    def __init__(self, cap, video, time_code, text_area, tc_area):
-        self.cap = cap
+    """Class for text recognition in a video.
+    It generates pictures with text from a video,
+    detects VFX and ADR text, and generates a dictionary with the results.
+
+    Args:
+        cap (cv2.VideoCapture): Video capture object.
+        video (str): Video name.
+        time_code (int): Time code.
+        text_area (List[Tuple[int, int]]): Text area.
+        tc_area (List[Tuple[int, int]]): Time code area.
+    """
+
+    def __init__(
+        self,
+        cap: cv2.VideoCapture,
+        video: str,
+        time_code: int,
+        text_area: List[Tuple[int, int]],
+        tc_area: List[Tuple[int, int]],
+    ) -> None:
+        self.cap: cv2.VideoCapture = cap
         self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.video_length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.video = video
-        self.time_code = time_code
+        self.video: str = video
+        self.time_code: int = time_code
+        self.text_area: List[Tuple[int, int]] = text_area
+        self.tc_area: List[Tuple[int, int]] = tc_area
         self.set_video_start_time()
-        self.text_area = text_area
-        self.tc_area = tc_area
 
-    def convert_current_frame_to_tc(self, frame_number):
+    def convert_current_frame_to_tc(self, frame_number: str) -> str:
+        """Converts the current frame number to a time code in format HH:MM:SS:FF.
+
+        Args:
+            frame_number (str): Frame number.
+
+        Returns:
+            str: Time code in format HH:MM:SS:FF (Hours, Minutes, Seconds, Frame).
+        """
         frame_number = int(frame_number)
         fps = int(self.video_fps)
 
@@ -35,7 +68,15 @@ class TextRecognition:
 
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
 
-    def read_tc_add_one_frame(self, time_str):
+    def read_tc_add_one_frame(self, time_str: str) -> str:
+        """Reads a time code string and adds one frame to it.
+
+        Args:
+            time_str (str): Time code string in format HH:MM:SS:FF.
+
+        Returns:
+            str: Time code string with one frame added.
+        """
         hours, minutes, seconds, frames = map(int, time_str.split(":"))
         frames += 1
         if frames == self.video_fps:
@@ -49,8 +90,9 @@ class TextRecognition:
             hours += 1
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
 
-    def set_video_start_time(self):
+    def set_video_start_time(self) -> None:
         # TODO Connect to the gui, make case for SS:FF code
+        """Sets the start frame of the video based on the input time code."""
         time_code = str(self.time_code)
         if time_code == "":
             return 0
@@ -70,7 +112,20 @@ class TextRecognition:
             )
         self.start_frame = start_frame
 
-    def tc_cleanup_from_potential_errors(self, tc_text, frame_number):
+    def tc_cleanup_from_potential_errors(
+        self, tc_text: List[str], frame_number: int
+    ) -> str:
+        """Cleans up the time code text from potential errors.
+        If the time code is not in the correct format, it returns "WRONG TC".
+        If the time code is empty, it returns "EMPTY TC".
+
+        Args:
+            tc_text (List[str]): Time code text.
+            frame_number (int): Frame number.
+
+        Returns:
+            str: Cleaned up time code text.
+        """
         if not tc_text or not tc_text[0]:
             return "EMPTY TC"
         pattern = re.compile(r"(\d{2})")
@@ -80,13 +135,14 @@ class TextRecognition:
             formated_text = f"{x[0]}:{x[1]}:{x[2]}:{x[3]}"
         except IndexError as e:
             logging.exception(
-                f"Error with frame {frame_number}. Trying to format and clean TC: '{joined_text}'.\n%s",
+                f"Error with frame {frame_number}. Trying to format and clean"
+                f" TC: '{joined_text}'.\n%s",
                 e,
             )
             return "WRONG TC"
         return formated_text
 
-    def match_text(self, text, beginning_chars):
+    def match_text(self, text: str, beginning_chars: str) -> str:
         pattern = re.compile(beginning_chars + r"\s*(.+)", re.IGNORECASE)
         match = re.search(pattern, text)
         if match is None:
@@ -95,8 +151,27 @@ class TextRecognition:
             return match.group()
 
     def evenly_spaced_nums_from_range(
-        self, range_list, q_nums=3, endpoint=True, nums_with_borders=True
-    ):
+        self,
+        range_list: List[List[int, int]],
+        q_nums: int = 3,
+        endpoint: bool = True,
+        nums_with_borders: bool = True,
+    ) -> List[int]:
+        """Generates evenly spaced numbers from a range.
+
+        Args:
+            range_list (List[List[int, int]]): List with the start and end of
+                the range.
+            q_nums (int, optional): Quantity of numbers to generate.
+                Defaults to 3.
+            endpoint (bool, optional): If True, the endpoint is
+                included in the range.Defaults to True.
+            nums_with_borders (bool, optional): If True, the numbers with
+                borders are included. Defaults to True.
+
+        Returns:
+            List[int]: List of evenly spaced numbers.
+        """
         generated_numbers = np.linspace(
             range_list[0],
             range_list[1],
@@ -109,7 +184,12 @@ class TextRecognition:
             return numbers_from_center
         return generated_numbers.tolist()
 
-    def generate_imgs_with_text_from_video(self):
+    def generate_imgs_with_text_from_video(self) -> List[int]:
+        """Generates images with text from the video.
+
+        Returns:
+            List[int]: List of frame numbers with embedded text.
+        """
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
         frames_with_embedded_text_id = []
         if self.cap.isOpened() == False:
@@ -159,8 +239,22 @@ class TextRecognition:
         return frames_with_embedded_text_id
 
     def check_if_vfx_text_in_found_scenes(
-        self, scene_list, frames_with_embedded_text_id
-    ):
+        self,
+        scene_list: List[Tuple[FrameTimecode, FrameTimecode]],
+        frames_with_embedded_text_id: List[int],
+    ) -> List[List[int, int]]:
+        """Checks if there is VFX text in the found scenes. If there is, it returns the potential frames ranges with VFX text.
+
+        Args:
+            scene_list (List[Tuple[FrameTimecode, FrameTimecode]]):
+                List of scenes.
+            frames_with_embedded_text_id (List[int]):
+                List of frame numbers with embedded text.
+
+        Returns:
+            List[List[int, int]]: List of potential frames ranges
+                with VFX text.
+        """
         each_scene_first_last_frame = [
             [int(i[0]), int(i[1])] for i in scene_list
         ]
@@ -179,24 +273,34 @@ class TextRecognition:
         potential_frames_ranges_with_vfx_text = []
         for sublist in numbers_to_check:
             if any(frame in frames_with_embedded_text_id for frame in sublist):
-                potential_frames_ranges_with_vfx_text.append(
-                    [
-                        each_scene_first_last_frame[
-                            numbers_to_check.index(sublist)
-                        ][0],
-                        each_scene_first_last_frame[
-                            numbers_to_check.index(sublist)
-                        ][1],
-                    ]
-                )
+                potential_frames_ranges_with_vfx_text.append([
+                    each_scene_first_last_frame[
+                        numbers_to_check.index(sublist)
+                    ][0],
+                    each_scene_first_last_frame[
+                        numbers_to_check.index(sublist)
+                    ][1],
+                ])
         print(
-            f"-Found potential text in {len(potential_frames_ranges_with_vfx_text)} scenes-"
+            "-Found potential text in"
+            f" {len(potential_frames_ranges_with_vfx_text)} scenes-"
         )
         return potential_frames_ranges_with_vfx_text
 
     def generate_pictures_for_each_scene(
-        self, potential_frames_ranges_with_vfx_text
-    ):
+        self, potential_frames_ranges_with_vfx_text: List[List[int, int]]
+    ) -> None:
+        """Generates pictures for each scene.
+        It generates thumbnails and first and last frames of the scene.
+        The pictures are saved in the temp folder.
+        The thumbnails are saved in the thumbnails folder,
+        and the first and last frames are saved in the
+        first_last_scene_frames folder.
+
+        Args:
+            potential_frames_ranges_with_vfx_text (List[List[int, int]]):
+                List of potential frames ranges with VFX text.
+        """
 
         print("\n-Generating Pictures-")
         for frame_range in tqdm(
@@ -228,7 +332,15 @@ class TextRecognition:
                         )
                         which_frame_from_loop -= 1
 
-    def read_text_from_image(self, image_path):
+    def read_text_from_image(self, image_path: str) -> List[str]:
+        """Reads text from an image.
+
+        Args:
+            image_path (str): Image path.
+
+        Returns:
+            List[str]: List of found text in the image.
+        """
         found_text = [
             list(
                 filter(
@@ -242,7 +354,15 @@ class TextRecognition:
         ]
         return found_text
 
-    def open_image_convert_and_save(self, image_path, frame_number):
+    def open_image_convert_and_save(
+        self, image_path: str, frame_number: int
+    ) -> None:
+        """Opens an image, converts it to grayscale, and saves it.
+
+        Args:
+            image_path (str): Image path.
+            frame_number (int): Frame number.
+        """
         img = Image.open(image_path)
         width, height = img.size
         frame = cv2.imread(image_path)
@@ -260,12 +380,27 @@ class TextRecognition:
 
     def generate_vfx_text(
         self,
-        potential_frames_ranges_with_vfx_text,
-        frames_with_embedded_text_id,
-    ):
-        found_vfx_text = {}
-        frames_not_found = []
-        found_vfx_flag = False
+        potential_frames_ranges_with_vfx_text: List[List[int, int]],
+        frames_with_embedded_text_id: List[int],
+    ) -> Dict[int, Dict[str, str]]:
+        """Generates VFX text.
+        It reads the text from the images and checks
+        if it matches the VFX pattern.
+        If it does, it generates a dictionary with the results.
+
+        Args:
+            potential_frames_ranges_with_vfx_text (List[List[int, int]]):
+                List of potential frames ranges with VFX text.
+
+            frames_with_embedded_text_id (List[int]):
+                List of frame numbers with embedded text.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
+        found_vfx_text: Dict[int, Dict[str, str]] = {}
+        frames_not_found: list = []
+        found_vfx_flag: bool = False
         print("\n-Reading VFX text-")
         for frame_range in tqdm(
             potential_frames_ranges_with_vfx_text,
@@ -319,7 +454,8 @@ class TextRecognition:
                                         first_frame_of_scene
                                     )
                                     logging.exception(
-                                        f"Error with frame {first_frame_of_scene}:\n %s",
+                                        "Error with frame"
+                                        f" {first_frame_of_scene}:\n %s",
                                         e,
                                     )
                                 try:
@@ -343,13 +479,15 @@ class TextRecognition:
                                         last_frame_of_scene
                                     )
                                     logging.exception(
-                                        f"Error with frame {last_frame_of_scene}:\n %s",
+                                        "Error with frame"
+                                        f" {last_frame_of_scene}:\n %s",
                                         e,
                                     )
                                     tc_out = last_frame_tc
                                 except ValueError as e:
                                     logging.exception(
-                                        f"Error with frame {last_frame_of_scene}:\n %s",
+                                        "Error with frame"
+                                        f" {last_frame_of_scene}:\n %s",
                                         e,
                                     )
                                     tc_out = last_frame_tc
@@ -375,13 +513,32 @@ class TextRecognition:
                         continue
         if frames_not_found:
             print(
-                f"Error with frames: {str(frames_not_found)[1:-1]}. Search may be incomplete."
+                f"Error with frames: {str(frames_not_found)[1:-1]}. Search may"
+                " be incomplete."
             )
         return found_vfx_text
 
     def check_previous_frames(
-        self, frames_with_embedded_text_id, frame, found_adr_text
-    ):
+        self,
+        frames_with_embedded_text_id: List[int],
+        frame: int,
+        found_adr_text: Dict[int, Dict[str, str]],
+    ) -> Dict[int, Dict[str, str]]:
+        """Checks the previous frames for ADR text.
+        If it finds it, it generates a dictionary with the results.
+
+        Args:
+            frames_with_embedded_text_id (List[int]): List of frame numbers
+                with embedded text.
+
+            frame (int): Frame number.
+
+            found_adr_text (Dict[int, Dict[str, str]]):
+                Dictionary with the results.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
         index = frames_with_embedded_text_id.index(frame)
         for curr_frame in frames_with_embedded_text_id[index - 1 :: -1]:
             image = f"./temp/text_imgs/frame_{curr_frame}.png"
@@ -411,8 +568,26 @@ class TextRecognition:
         return found_adr_text
 
     def check_next_frames(
-        self, frames_with_embedded_text_id, frame, found_adr_text
-    ):
+        self,
+        frames_with_embedded_text_id: List[int],
+        frame: int,
+        found_adr_text: Dict[int, Dict[str, str]],
+    ) -> Dict[int, Dict[str, str]]:
+        """Checks the next frames for ADR text.
+        If it finds it, it generates a dictionary with the results.
+
+        Args:
+            frames_with_embedded_text_id (List[int]):
+                List of frame numbers with embedded text.
+
+            frame (int): Frame number.
+
+            found_adr_text (Dict[int, Dict[str, str]]):
+                Dictionary with the results.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
         index = frames_with_embedded_text_id.index(frame)
         for curr_frame in frames_with_embedded_text_id[index + 1 :]:
             image = f"./temp/text_imgs/frame_{curr_frame}.png"
@@ -441,20 +616,27 @@ class TextRecognition:
                     return found_adr_text
         return found_adr_text
 
-    def generate_adr_text(self, frames_with_embedded_text_id):
-        found_adr_text = {}
+    def generate_adr_text(
+        self, frames_with_embedded_text_id: List[int]
+    ) -> Dict[int, Dict[str, str]]:
+        """Generates ADR text. It reads the text from the images and checks
+        if it matches the ADR pattern.
+        If it does, it generates a dictionary with the results.
+
+        Args:
+            frames_with_embedded_text_id (List[int]):
+                List of frame numbers with embedded text.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
+        found_adr_text: Dict[int, Dict[str, str]] = {}
         print("\n-Searching for ADR text-")
-        # pbar = tqdm(
-        #     total=len(frames_with_embedded_text_id),
-        #     desc="Frames checked",
-        #     unit="frames",
-        # )
         for frame in tqdm(
             frames_with_embedded_text_id[::15],
             desc="Frames checked",
             unit="frames",
         ):
-            # print(frame)
             left_image = f"./temp/text_imgs/frame_{frame}.png"
             text = self.read_text_from_image(left_image)
             for line in text:
@@ -464,9 +646,6 @@ class TextRecognition:
                 if matched_text:
                     right_image = f"./temp/tc_imgs/frame_{frame}.png"
                     frame_tc = self.read_text_from_image(right_image)
-                    # pbar.set_postfix_str(
-                    #     f"Last text found: {text[0]}", refresh=True
-                    # )
                     try:
                         frame_tc = self.tc_cleanup_from_potential_errors(
                             tc_text=frame_tc, frame_number=frame
@@ -492,7 +671,19 @@ class TextRecognition:
         found_adr_text = self.remove_all_but_border_cases_found(sorted_dict)
         return found_adr_text
 
-    def remove_all_but_border_cases_found(self, text_dict):
+    def remove_all_but_border_cases_found(
+        self, text_dict: Dict[int, Dict[str, str]]
+    ) -> Dict[int, Dict[str, str]]:
+        """Removes all but the border cases from the found text.
+        It keeps only the first and last frame of the found text.
+        It also adds the real time code to the dictionary.
+
+        Args:
+            text_dict (Dict[int, Dict[str, str]]): Dictionary with the results.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
         numbers = text_dict.keys()
         keys_series = []
         first_and_last_key = []
@@ -524,8 +715,24 @@ class TextRecognition:
             new_adr_dict[ranges[0]]["FRAME OUT"] = ranges[1] + 1
         return new_adr_dict
 
-    def merge_dicts(self, dict_a, dict_b):
-        merge_result = {}
+    def merge_dicts(
+        self,
+        dict_a: Dict[int, Dict[str, str]],
+        dict_b: Dict[int, Dict[str, str]],
+    ) -> Dict[int, Dict[str, str]]:
+        """Merges two dictionaries.
+        If the keys are the same, it merges the values.
+        If the keys are different, it keeps the values.
+        It also sorts the results.
+
+        Args:
+            dict_a (Dict[int, Dict[str, str]]): First dictionary.
+            dict_b (Dict[int, Dict[str, str]]): Second dictionary.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
+        merge_result: Dict[int, Dict[str, str]] = {}
         for key in dict_a:
             if key in dict_b:
                 merge_result[key] = {
@@ -541,7 +748,19 @@ class TextRecognition:
         sorted_results = dict(sorted(merge_result.items()))
         return sorted_results
 
-    def add_real_timestamps(self, frames_dict):
+    def add_real_timestamps(
+        self, frames_dict: Dict[int, Dict[str, str]]
+    ) -> Dict[int, Dict[str, str]]:
+        """Adds the real time code to the dictionary.
+        It converts the frame numbers to time codes.
+
+        Args:
+            frames_dict (Dict[int, Dict[str, str]]): Dictionary with the
+                results.
+
+        Returns:
+            Dict[int, Dict[str, str]]: Dictionary with the results.
+        """
         for frame_number in frames_dict.keys():
             real_tc_in = self.convert_current_frame_to_tc(frame_number)
             real_tc_out = self.convert_current_frame_to_tc(
@@ -553,6 +772,7 @@ class TextRecognition:
         return frames_dict
 
     def close_cap(self):
+        """Close the video capture object and destroy all windows."""
         self.cap.release()
         cv2.destroyAllWindows()
 

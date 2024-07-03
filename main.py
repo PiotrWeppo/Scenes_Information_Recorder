@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# *_* coding: utf-8 *_*
+"""This module deploys VFX/ADR text detection program."""
+
 import logging
 import sys
 from gui import AppGui
@@ -13,7 +17,8 @@ from xlsx_creator import create_dataframe, create_xlsx_file
 from info_logger import start_logging_info
 
 
-def main():
+def main() -> None:
+    """Main function of the program."""
     print("Welcome to the VFX/ADR text detection program.\n")
     gui = AppGui()
     video_names = find_video_file()

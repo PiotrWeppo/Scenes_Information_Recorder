@@ -1,3 +1,5 @@
+"""This module contains functions to create an Excel file from a dictionary."""
+
 import pandas as pd
 from files_operations import (
     create_folder,
@@ -5,7 +7,15 @@ from files_operations import (
 )
 
 
-def create_dataframe(final_dict):
+def create_dataframe(final_dict: dict) -> pd.DataFrame:
+    """Create a pandas DataFrame from a dictionary.
+    
+    Args:
+        final_dict (dict): Dictionary with the final data.
+        
+    Returns:
+        pd.DataFrame: DataFrame with the final data.
+    """
     df = pd.DataFrame(final_dict).T
     df.reset_index(inplace=True)
     df.rename(columns={"index": "FRAME IN"}, inplace=True)
@@ -23,7 +33,13 @@ def create_dataframe(final_dict):
     return df
 
 
-def create_xlsx_file(dataframe, video):
+def create_xlsx_file(dataframe: pd.DataFrame, video: str) -> None:
+    """Create an Excel file from a DataFrame. Insert pictures in the Excel file.
+    
+    Args:
+        dataframe (pd.DataFrame): DataFrame with the final data.
+        video (str): Video name.
+    """
     print("\n-Creating Excel file-")
     video_name = video.split(".")[0]
     writer = pd.ExcelWriter(f"{video_name}.xlsx", engine="xlsxwriter")

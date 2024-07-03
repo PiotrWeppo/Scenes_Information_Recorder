@@ -1,29 +1,53 @@
+"""This module contains the GUI class for the program. The GUI is used to select the video file and set the detection areas for the text."""
+
+from typing import Optional, List, Tuple
 import tkinter as tk
 import cv2
 from PIL import Image, ImageTk
 
 
 class AppGui:
+    """
+    Class for creating the GUI for the program. The GUI is used to select the video file and set the detection areas for the text.
+        Args:
+            main_window (tk.Tk): The main window of the program.
+            main_frame (tk.Frame): The main frame of the program.
+            cap (cv2.VideoCapture): The video capture object.
+            text_picture_clicks (List[Tuple[int, int]]): List of coordinates for the text detection area.
+            tc_picture_clicks (List[Tuple[int, int]]): List of coordinates for the timecode detection area.
+            video_label (tk.Label): Label for displaying the video frames.
+            scale_third_screen (tk.Scale): Scale for selecting the frame to display.
+            current_button (str): The current button that is selected.
+            text_button (tk.Button): Button for selecting the text detection area.
+            tc_button (tk.Button): Button for selecting the timecode detection area.
+            submit_btn3 (tk.Button): Button for submitting the detection areas.
+
+    """
 
     def __init__(self) -> None:
-        self.main_window = None
-        self.main_frame = None
-        self.cap = None
-        self.text_picture_clicks = []
-        self.tc_picture_clicks = []
-        self.video_label = None
-        self.scale_third_screen = None
-        self.current_button = None
-        self.text_button = None
-        self.tc_button = None
-        self.submit_btn3 = None
-        self.check_var = None
-        self.main_frame = None
-        self.video_sources = None
-        self.radio_value = None
-        self.scale_value = None
+        self.main_window: Optional[tk.Tk] = None
+        self.main_frame: Optional[tk.Frame] = None
+        self.cap: Optional[cv2.VideoCapture] = None
+        self.text_picture_clicks: List[Tuple[int, int]] = []
+        self.tc_picture_clicks: List[Tuple[int, int]] = []
+        self.video_label: Optional[tk.Label] = None
+        self.scale_third_screen: Optional[tk.Scale] = None
+        self.current_button: Optional[str] = None
+        self.text_button: Optional[tk.Button] = None
+        self.tc_button: Optional[tk.Button] = None
+        self.submit_btn3: Optional[tk.Button] = None
+        self.check_var: Optional[tk.IntVar] = None
+        self.main_frame: Optional[tk.Frame] = None
+        self.video_sources: Optional[List[str]] = None
+        self.radio_value: Optional[tk.StringVar] = None
+        self.scale_value: Optional[tk.IntVar] = None
 
-    def create_list_of_video_sources(self):
+    def create_list_of_video_sources(self) -> int:
+        """Create a list of radio buttons for selecting the video source.
+        
+        Returns:
+            int: The next empty row in the grid.
+        """
         self.radio_value = tk.StringVar(value=self.video_sources[0])
         for i, file in enumerate(self.video_sources):
             radio_btn = tk.Radiobutton(
@@ -36,12 +60,25 @@ class AppGui:
         next_empty_row = len(self.video_sources) + 3
         return next_empty_row
 
-    def get_or_init_cap(self, video_path):
+    def get_or_init_cap(self, video_path: str) -> cv2.VideoCapture:
+        """Get the video capture object or initialize it if it does not exist.
+        
+        Args:
+            video_path (str): The path to the video file.
+            
+        Returns:
+            cv2.VideoCapture: The video capture object.
+        """
         if self.cap is None or not self.cap.isOpened():
             self.cap = cv2.VideoCapture(video_path)
         return self.cap
 
-    def create_main_screen(self, video_names):
+    def create_main_screen(self, video_names: List[str]) -> None:
+        """Create the main screen of the program.
+        
+        Args:
+            video_names (List[str]): List of video file names.
+        """
         self.video_sources = video_names
         self.main_window = tk.Tk()
         self.main_window.title("Scenes Information Recorder")
@@ -92,12 +129,13 @@ class AppGui:
         self.center_window()
         self.main_window.mainloop()
 
-    def clear_frame(self):
+    def clear_frame(self) -> None:
+        """Clear the main frame of the program."""
         for widget in self.main_frame.winfo_children():
             widget.destroy()
 
-    def show_first_frame(self):
-        """Set the video to the first frame and display it."""
+    def show_first_frame(self) -> None:
+        """Show the first frame of the video in the GUI."""
         if self.cap.isOpened():
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = self.cap.read()
@@ -117,7 +155,8 @@ class AppGui:
             else:
                 print("Failed to read the first frame.")
 
-    def create_second_screen(self):
+    def create_second_screen(self) -> None:
+        """Create the second screen of the program."""
         self.cap = self.get_or_init_cap(self.radio_value.get())
         self.video_name = self.radio_value.get()
         self.clear_frame()
@@ -169,7 +208,12 @@ class AppGui:
 
             second_screen_frame.columnconfigure(1, weight=1)
 
-            def update_frame_2(value):
+            def update_frame_2(value: int) -> None:
+                """Update the displayed frame based on the scale's value.
+                
+                Args:
+                    value (int): The value of the scale.
+                """
                 frame_number = int(value)
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
                 ret, frame = self.cap.read()
@@ -198,14 +242,16 @@ class AppGui:
                 lambda event: update_frame_2(scale_second_screen.get()),
             )
 
-            def increase_value():
+            def increase_value() -> None:
+                """Increase the value of the scale by 1."""
                 current_value = scale_second_screen.get()
                 if current_value < max_frames:
                     new_value = current_value + 1
                     scale_second_screen.set(new_value)
                     update_frame_2(new_value)
 
-            def decrease_value():
+            def decrease_value() -> None:
+                """Decrease the value of the scale by 1."""
                 current_value = scale_second_screen.get()
                 if current_value > 0:
                     new_value = current_value - 1
@@ -244,7 +290,7 @@ class AppGui:
             )
             entry_box.grid(row=5, column=0, sticky="ew", padx=400)
 
-            def validate_entry(*args):
+            def validate_entry(*args) -> None:
                 try:
                     new_value = int(entry_box.get())
                     if 0 <= new_value <= max_frames:
@@ -270,7 +316,8 @@ class AppGui:
         else:
             self.create_third_screen()
 
-    def create_third_screen(self):
+    def create_third_screen(self) -> None:
+        """Create the third screen of the program."""
         self.clear_frame()
 
         title_label_third = tk.Label(
@@ -362,7 +409,8 @@ class AppGui:
 
         self.center_window()
 
-    def submit_action(self):
+    def submit_action(self) -> None:
+        """Submit the detection areas and close the program."""
         if (
             len(self.text_picture_clicks) != 2
             or len(self.tc_picture_clicks) != 2
@@ -377,7 +425,8 @@ class AppGui:
             )
             self.main_window.destroy()
 
-    def show_popup(self):
+    def show_popup(self) -> None:
+        """Show a warning popup if the detection areas are not selected."""
         popup = tk.Toplevel()
         popup.title("Warning")
         popup.resizable(0, 0)
@@ -390,8 +439,12 @@ class AppGui:
         close_button.pack()
         self.center_window()
 
-    def update_frame(self, value):
-        """Update the displayed frame based on the scale's value."""
+    def update_frame(self, value: int) -> None:
+        """Update the displayed frame based on the scale's value.
+        
+        Args:
+            value (int): The value of the scale.
+        """
         frame_number = int(value)
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         ret, frame = self.cap.read()
@@ -421,22 +474,28 @@ class AppGui:
             self.video_label.imgtk = imgtk
             self.video_label.configure(image=imgtk)
 
-    def text_button_click(self):
+    def text_button_click(self) -> None:
+        """Handle click events on the text button."""
         self.current_button = "text_button"
         self.text_picture_clicks.clear()
         self.text_button.config(relief="sunken", bg="grey")
         self.tc_button.config(relief="raised", bg="blue")
         self.video_label.bind("<Button-1>", self.on_picture_click)
 
-    def tc_button_click(self):
+    def tc_button_click(self) -> None:
+        """Handle click events on the timecode button."""
         self.current_button = "tc_button"
         self.tc_picture_clicks.clear()
         self.tc_button.config(relief="sunken", bg="grey")
         self.text_button.config(relief="raised", bg="green")
         self.video_label.bind("<Button-1>", self.on_picture_click)
 
-    def on_picture_click(self, event):
-        """Handle click events on the picture."""
+    def on_picture_click(self, event: tk.Event) -> None:
+        """Handle click events on the picture.
+        
+        Args:
+            event (tk.Event): The event object.
+        """
         if self.current_button == "text_button":
             if len(self.text_picture_clicks) < 2:
                 self.text_picture_clicks.append(
@@ -459,7 +518,7 @@ class AppGui:
             self.tc_button.config(relief="raised", bg="blue")
             self.video_label.unbind("<Button-1>")
 
-    def draw_rectangle(self):
+    def draw_rectangle(self) -> None:
         """Draw rectangles on the picture using the collected coordinates."""
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, self.scale_third_screen.get())
         ret, frame = self.cap.read()
@@ -488,12 +547,19 @@ class AppGui:
             frame = ImageTk.PhotoImage(image=frame)
             self.video_label.configure(image=frame)
             self.video_label.image = frame
-    
-    def calculate_rectangle_corners(self, clicks):
-        """Calculate all four corners of the rectangle."""
+
+    def calculate_rectangle_corners(self, clicks: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+        """Calculate all four corners of the rectangle based on the two clicked points.
+        
+        Args:
+            clicks (List[Tuple[int, int]]): List of clicked points.
+            
+        Returns:
+            List[Tuple[int, int]]: List of all four corners of the rectangle.
+        """
         x1, y1 = clicks[0]
         x2, y2 = clicks[1]
-        
+
         min_x = min(x1, x2)
         max_x = max(x1, x2)
         min_y = min(y1, y2)
@@ -505,9 +571,11 @@ class AppGui:
         bottom_right = (max_x, max_y)
 
         rectangle_corners = [top_left, top_right, bottom_right, bottom_left]
+        print(f"rectangle_corners={rectangle_corners}")
+        print(type(rectangle_corners))
         return rectangle_corners
 
-    def center_window(self):
+    def center_window(self) -> None:
         """Center the window on the screen."""
         self.main_window.update_idletasks()
         window_width = self.main_window.winfo_width()
