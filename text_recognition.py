@@ -23,7 +23,7 @@ class TextRecognition:
     Args:
         cap (cv2.VideoCapture): Video capture object.
         video (str): Video name.
-        time_code (int): Time code.
+        start_frame (int): Video start frame point.
         text_area (List[Tuple[int, int]]): Text area.
         tc_area (List[Tuple[int, int]]): Time code area.
     """
@@ -32,7 +32,7 @@ class TextRecognition:
         self,
         cap: cv2.VideoCapture,
         video: str,
-        time_code: int,
+        start_frame: int,
         text_area: List[Tuple[int, int]],
         tc_area: List[Tuple[int, int]],
     ) -> None:
@@ -40,10 +40,9 @@ class TextRecognition:
         self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.video_length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.video: str = video
-        self.time_code: int = time_code
+        self.start_frame: int = start_frame
         self.text_area: List[Tuple[int, int]] = text_area
         self.tc_area: List[Tuple[int, int]] = tc_area
-        self.set_video_start_time()
 
     def convert_current_frame_to_tc(self, frame_number: str) -> str:
         """Converts the current frame number to a time code in format HH:MM:SS:FF.
@@ -90,28 +89,6 @@ class TextRecognition:
             hours += 1
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{frames:02d}"
 
-    def set_video_start_time(self) -> None:
-        # TODO Connect to the gui, make case for SS:FF code
-        """Sets the start frame of the video based on the input time code."""
-        time_code = str(self.time_code)
-        if time_code == "":
-            return 0
-        if time_code.isdigit():
-            start_frame = int(time_code)
-        elif ":" in time_code:
-            try:
-                seconds, frames = map(int, time_code.split(":"))
-                start_frame = int(seconds * self.video_fps + frames)
-            except ValueError:
-                delete_temp_folder_on_error_and_exit("Invalid Input.")
-        else:
-            delete_temp_folder_on_error_and_exit("Invalid Input.")
-        if start_frame > self.video_length:
-            delete_temp_folder_on_error_and_exit(
-                "Frame number outside of video length."
-            )
-        self.start_frame = start_frame
-
     def tc_cleanup_from_potential_errors(
         self, tc_text: List[str], frame_number: int
     ) -> str:
@@ -152,7 +129,7 @@ class TextRecognition:
 
     def evenly_spaced_nums_from_range(
         self,
-        range_list: List[List[int, int]],
+        range_list: List[List[int]],
         q_nums: int = 3,
         endpoint: bool = True,
         nums_with_borders: bool = True,
@@ -160,7 +137,7 @@ class TextRecognition:
         """Generates evenly spaced numbers from a range.
 
         Args:
-            range_list (List[List[int, int]]): List with the start and end of
+            range_list (List[List[int]]): List with the start and end of
                 the range.
             q_nums (int, optional): Quantity of numbers to generate.
                 Defaults to 3.
@@ -191,8 +168,9 @@ class TextRecognition:
             List[int]: List of frame numbers with embedded text.
         """
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, self.start_frame)
+        logging.debug("Video start frame: %s", self.start_frame)
         frames_with_embedded_text_id = []
-        if self.cap.isOpened() == False:
+        if not self.cap.isOpened():
             delete_temp_folder_on_error_and_exit("Error opening video file")
         print("\n-Saving frames containing potential text-")
         pbar = tqdm(
@@ -204,7 +182,7 @@ class TextRecognition:
         frames_counter = 0
         while self.cap.isOpened():
             ret, frame = self.cap.read()
-            if ret == True:
+            if ret is True:
                 current_frame = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
                 grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 _, threshold = cv2.threshold(
@@ -242,7 +220,7 @@ class TextRecognition:
         self,
         scene_list: List[Tuple[FrameTimecode, FrameTimecode]],
         frames_with_embedded_text_id: List[int],
-    ) -> List[List[int, int]]:
+    ) -> List[List[int]]:
         """Checks if there is VFX text in the found scenes. If there is, it returns the potential frames ranges with VFX text.
 
         Args:
@@ -288,7 +266,7 @@ class TextRecognition:
         return potential_frames_ranges_with_vfx_text
 
     def generate_pictures_for_each_scene(
-        self, potential_frames_ranges_with_vfx_text: List[List[int, int]]
+        self, potential_frames_ranges_with_vfx_text: List[List[int]]
     ) -> None:
         """Generates pictures for each scene.
         It generates thumbnails and first and last frames of the scene.
@@ -298,7 +276,7 @@ class TextRecognition:
         first_last_scene_frames folder.
 
         Args:
-            potential_frames_ranges_with_vfx_text (List[List[int, int]]):
+            potential_frames_ranges_with_vfx_text (List[List[int]]):
                 List of potential frames ranges with VFX text.
         """
 
@@ -380,7 +358,7 @@ class TextRecognition:
 
     def generate_vfx_text(
         self,
-        potential_frames_ranges_with_vfx_text: List[List[int, int]],
+        potential_frames_ranges_with_vfx_text: List[List[int]],
         frames_with_embedded_text_id: List[int],
     ) -> Dict[int, Dict[str, str]]:
         """Generates VFX text.
@@ -389,7 +367,7 @@ class TextRecognition:
         If it does, it generates a dictionary with the results.
 
         Args:
-            potential_frames_ranges_with_vfx_text (List[List[int, int]]):
+            potential_frames_ranges_with_vfx_text (List[List[int]]):
                 List of potential frames ranges with VFX text.
 
             frames_with_embedded_text_id (List[int]):

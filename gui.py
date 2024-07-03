@@ -13,14 +13,22 @@ class AppGui:
             main_window (tk.Tk): The main window of the program.
             main_frame (tk.Frame): The main frame of the program.
             cap (cv2.VideoCapture): The video capture object.
+            video_fps (float): The frames per second of the video.
             text_picture_clicks (List[Tuple[int, int]]): List of coordinates for the text detection area.
             tc_picture_clicks (List[Tuple[int, int]]): List of coordinates for the timecode detection area.
+            text_area (List[Tuple[int, int]]): List of coordinates for the text detection area.
+            tc_area (List[Tuple[int, int]]): List of coordinates for the timecode detection area.
             video_label (tk.Label): Label for displaying the video frames.
             scale_third_screen (tk.Scale): Scale for selecting the frame to display.
             current_button (str): The current button that is selected.
             text_button (tk.Button): Button for selecting the text detection area.
             tc_button (tk.Button): Button for selecting the timecode detection area.
             submit_btn3 (tk.Button): Button for submitting the detection areas.
+            check_var (tk.IntVar): Variable for the check button.
+            main_frame (tk.Frame): The main frame of the program.
+            video_sources (List[str]): List of video file names.
+            radio_value (tk.StringVar): Variable for the radio buttons.
+            scale_value (tk.IntVar): Variable for the scale.
 
     """
 
@@ -28,8 +36,11 @@ class AppGui:
         self.main_window: Optional[tk.Tk] = None
         self.main_frame: Optional[tk.Frame] = None
         self.cap: Optional[cv2.VideoCapture] = None
+        self.video_fps: Optional[float] = None
         self.text_picture_clicks: List[Tuple[int, int]] = []
         self.tc_picture_clicks: List[Tuple[int, int]] = []
+        self.text_area: Optional[List[Tuple[int, int]]] = None
+        self.tc_area: Optional[List[Tuple[int, int]]] = None
         self.video_label: Optional[tk.Label] = None
         self.scale_third_screen: Optional[tk.Scale] = None
         self.current_button: Optional[str] = None
@@ -44,7 +55,7 @@ class AppGui:
 
     def create_list_of_video_sources(self) -> int:
         """Create a list of radio buttons for selecting the video source.
-        
+
         Returns:
             int: The next empty row in the grid.
         """
@@ -62,20 +73,21 @@ class AppGui:
 
     def get_or_init_cap(self, video_path: str) -> cv2.VideoCapture:
         """Get the video capture object or initialize it if it does not exist.
-        
+
         Args:
             video_path (str): The path to the video file.
-            
+
         Returns:
             cv2.VideoCapture: The video capture object.
         """
         if self.cap is None or not self.cap.isOpened():
             self.cap = cv2.VideoCapture(video_path)
+            self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
         return self.cap
 
     def create_main_screen(self, video_names: List[str]) -> None:
         """Create the main screen of the program.
-        
+
         Args:
             video_names (List[str]): List of video file names.
         """
@@ -210,7 +222,7 @@ class AppGui:
 
             def update_frame_2(value: int) -> None:
                 """Update the displayed frame based on the scale's value.
-                
+
                 Args:
                     value (int): The value of the scale.
                 """
@@ -263,7 +275,7 @@ class AppGui:
 
             down_button = tk.Button(
                 buttons_frame2,
-                text="\U0001F808",
+                text="\U0001f808",
                 command=decrease_value,
                 width=5,
             )
@@ -276,7 +288,7 @@ class AppGui:
 
             up_button = tk.Button(
                 buttons_frame2,
-                text="\U0001F80A",
+                text="\U0001f80a",
                 command=increase_value,
                 width=5,
             )
@@ -286,20 +298,50 @@ class AppGui:
             buttons_frame2.grid_columnconfigure(1, weight=1)
 
             entry_box = tk.Entry(
-                self.main_frame, textvariable=self.scale_value
+                self.main_frame,
+                # textvariable=self.scale_value
             )
             entry_box.grid(row=5, column=0, sticky="ew", padx=400)
 
-            def validate_entry(*args) -> None:
+            # def validate_entry(*args) -> None:
+            #     try:
+            #         new_value = int(entry_box.get())
+            #         if 0 <= new_value <= max_frames:
+            #             scale_second_screen.set(new_value)
+            #             update_frame_2(new_value)
+            #         else:
+            #             raise ValueError
+            #     except ValueError:
+            #         entry_box.delete(0, tk.END)
+            #     finally:
+            #         entry_box.delete(0, tk.END)
+
+            # entry_box.bind("<Return>", lambda event: validate_entry())
+
+            def validate_entry(*args: str) -> None:
+                """Validate the entry box input and update the scale."""
+                start_frame = 0
                 try:
-                    new_value = int(entry_box.get())
-                    if 0 <= new_value <= max_frames:
-                        scale_second_screen.set(new_value)
-                        update_frame_2(new_value)
+                    new_value = entry_box.get()
+                    if new_value == "":
+                        start_frame = 0
+                    if new_value.isdigit():
+                        start_frame = int(new_value)
+                    elif ":" in new_value:
+                        try:
+                            seconds, frames = map(int, new_value.split(":"))
+                            start_frame = int(
+                                seconds * self.video_fps + frames
+                            )
+                        except ValueError:
+                            pass
+                    if 0 <= start_frame <= max_frames:
+                        scale_second_screen.set(start_frame)
+                        update_frame_2(start_frame)
                     else:
                         raise ValueError
                 except ValueError:
-                    entry_box.delete(0, tk.END)
+                    pass
                 finally:
                     entry_box.delete(0, tk.END)
 
@@ -441,7 +483,7 @@ class AppGui:
 
     def update_frame(self, value: int) -> None:
         """Update the displayed frame based on the scale's value.
-        
+
         Args:
             value (int): The value of the scale.
         """
@@ -492,7 +534,7 @@ class AppGui:
 
     def on_picture_click(self, event: tk.Event) -> None:
         """Handle click events on the picture.
-        
+
         Args:
             event (tk.Event): The event object.
         """
@@ -548,12 +590,14 @@ class AppGui:
             self.video_label.configure(image=frame)
             self.video_label.image = frame
 
-    def calculate_rectangle_corners(self, clicks: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    def calculate_rectangle_corners(
+        self, clicks: List[Tuple[int, int]]
+    ) -> List[Tuple[int, int]]:
         """Calculate all four corners of the rectangle based on the two clicked points.
-        
+
         Args:
             clicks (List[Tuple[int, int]]): List of clicked points.
-            
+
         Returns:
             List[Tuple[int, int]]: List of all four corners of the rectangle.
         """

@@ -29,11 +29,12 @@ def main() -> None:
         start_time = gui.scale_value.get()
     else:
         start_time = 0
+    if gui.text_area is None or gui.tc_area is None:
+        logging.error("App closed before processing. Exiting.")
+        input("App closed before processing.\n\nPress Enter to exit: ")
+        sys.exit()
     text_area = gui.text_area
     tc_area = gui.tc_area
-    print(f"start_time={start_time}")
-    print(f"text_area={text_area}")
-    print(f"tc_area={tc_area}")
     create_folder(
         "./temp/text_imgs",
         "./temp/tc_imgs",
@@ -50,8 +51,6 @@ def main() -> None:
         f"frames_with_embedded_text_id=\n{frames_with_embedded_text_id}\n"
     )
     scene_list = detect_all_scenes(video)
-    # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    # print(loggers)
     logging.debug(f"scene_list=\n{scene_list}\n")
 
     frames_ranges_with_potential_text = (
@@ -62,7 +61,6 @@ def main() -> None:
     logging.debug(
         f"frames_ranges_with_potential_text=\n{frames_ranges_with_potential_text}\n"
     )
-    # print(frames_with_embedded_text_id)
     text_recognition.generate_pictures_for_each_scene(
         frames_ranges_with_potential_text
     )
