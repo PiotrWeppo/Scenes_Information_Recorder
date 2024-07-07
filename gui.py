@@ -615,8 +615,6 @@ class AppGui:
         bottom_right = (max_x, max_y)
 
         rectangle_corners = [top_left, top_right, bottom_right, bottom_left]
-        print(f"rectangle_corners={rectangle_corners}")
-        print(type(rectangle_corners))
         return rectangle_corners
 
     def center_window(self) -> None:

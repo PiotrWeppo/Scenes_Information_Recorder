@@ -19,6 +19,7 @@ from info_logger import start_logging_info
 
 def main() -> None:
     """Main function of the program."""
+    
     print("Welcome to the VFX/ADR text detection program.\n")
     gui = AppGui()
     video_names = find_video_file()

@@ -71,11 +71,15 @@ class TextRecognition:
         """Reads a time code string and adds one frame to it.
 
         Args:
-            time_str (str): Time code string in format HH:MM:SS:FF.
+            time_str (str): Time code string in format HH:MM:SS:FF
+                (Hours:Minutes:Seconds:Frames).
 
         Returns:
             str: Time code string with one frame added.
         """
+        if time_str == "WRONG TC" or time_str == "EMPTY TC":
+            return time_str
+
         hours, minutes, seconds, frames = map(int, time_str.split(":"))
         frames += 1
         if frames == self.video_fps:
@@ -93,8 +97,10 @@ class TextRecognition:
         self, tc_text: List[str], frame_number: int
     ) -> str:
         """Cleans up the time code text from potential errors.
+
         If the time code is not in the correct format, it returns "WRONG TC".
         If the time code is empty, it returns "EMPTY TC".
+        Searches for pattern in a text and returns the formatted text.
 
         Args:
             tc_text (List[str]): Time code text.
@@ -120,6 +126,15 @@ class TextRecognition:
         return formated_text
 
     def match_text(self, text: str, beginning_chars: str) -> str:
+        """Matches text with a pattern and returns the matched text.
+
+        Args:
+            text (str): Text to match.
+            beginning_chars (str): Characters from which the text starts.
+
+        Returns:
+            str: Matched text.
+        """
         pattern = re.compile(beginning_chars + r"\s*(.+)", re.IGNORECASE)
         match = re.search(pattern, text)
         if match is None:
@@ -134,7 +149,7 @@ class TextRecognition:
         endpoint: bool = True,
         nums_with_borders: bool = True,
     ) -> List[int]:
-        """Generates evenly spaced numbers from a range.
+        """Generates evenly spaced list of numbers from a range.
 
         Args:
             range_list (List[List[int]]): List with the start and end of
@@ -162,7 +177,7 @@ class TextRecognition:
         return generated_numbers.tolist()
 
     def generate_imgs_with_text_from_video(self) -> List[int]:
-        """Generates images with text from the video.
+        """Processes the video and saves frames with potential text.
 
         Returns:
             List[int]: List of frame numbers with embedded text.
@@ -184,25 +199,22 @@ class TextRecognition:
             ret, frame = self.cap.read()
             if ret is True:
                 current_frame = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
-                grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                _, threshold = cv2.threshold(
-                    grayscale, 245, 255, cv2.THRESH_BINARY_INV
-                )
+                binary_image = self.frame_processing(frame)
                 top_left, _, bottom_right, _ = self.text_area
-                cropped_img_l = threshold[
+                cropped_img_l = binary_image[
                     top_left[1] : bottom_right[1],
                     top_left[0] : bottom_right[0],
                 ]
-                top_left, _, bottom_right, _ = self.tc_area
-                cropped_img_r = threshold[
-                    top_left[1] : bottom_right[1],
-                    top_left[0] : bottom_right[0],
-                ]
-                n_white_pix = np.sum(cropped_img_l == 0)
+                n_black_pix = np.sum(cropped_img_l == 0)
                 pbar.set_postfix_str(
                     f"Frames saved: {frames_counter}", refresh=True
                 )
-                if n_white_pix >= 500:
+                if n_black_pix >= 2000:
+                    top_left, _, bottom_right, _ = self.tc_area
+                    cropped_img_r = binary_image[
+                        top_left[1] : bottom_right[1],
+                        top_left[0] : bottom_right[0],
+                    ]
                     filename = f"frame_{current_frame}.png"
                     cv2.imwrite("./temp/text_imgs/" + filename, cropped_img_l)
                     cv2.imwrite("./temp/tc_imgs/" + filename, cropped_img_r)
@@ -215,6 +227,21 @@ class TextRecognition:
         pbar.close()
 
         return frames_with_embedded_text_id
+
+    def frame_processing(self, frame: np.ndarray) -> np.ndarray:
+        """Applies processing to a frame. Returns a binary image.
+
+        Args:
+            frame (np.ndarray): Frame to process.
+
+        Returns:
+            np.ndarray: Binary image.
+        """
+        grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        _, threshold = cv2.threshold(
+            grayscale, 245, 255, cv2.THRESH_BINARY_INV
+        )
+        return threshold
 
     def check_if_vfx_text_in_found_scenes(
         self,
@@ -240,14 +267,6 @@ class TextRecognition:
             self.evenly_spaced_nums_from_range(range, q_nums=5, endpoint=False)
             for range in each_scene_first_last_frame
         ]
-        # potential_frames_ranges_with_vfx_text = [
-        #     frame_range
-        #     for frame_range in each_scene_first_last_frame
-        #     if any(
-        #         frame in frames_with_embedded_text_id
-        #         for frame in range(frame_range[0], frame_range[1])
-        #     )
-        # ]
         potential_frames_ranges_with_vfx_text = []
         for sublist in numbers_to_check:
             if any(frame in frames_with_embedded_text_id for frame in sublist):
@@ -269,6 +288,7 @@ class TextRecognition:
         self, potential_frames_ranges_with_vfx_text: List[List[int]]
     ) -> None:
         """Generates pictures for each scene.
+
         It generates thumbnails and first and last frames of the scene.
         The pictures are saved in the temp folder.
         The thumbnails are saved in the thumbnails folder,
@@ -332,24 +352,21 @@ class TextRecognition:
         ]
         return found_text
 
-    def open_image_convert_and_save(
+    def generate_processed_pictures(
         self, image_path: str, frame_number: int
     ) -> None:
-        """Opens an image, converts it to grayscale, and saves it.
+        """Processes a frame, crops it, and saves it.
 
         Args:
             image_path (str): Image path.
             frame_number (int): Frame number.
         """
-        img = Image.open(image_path)
-        width, height = img.size
         frame = cv2.imread(image_path)
-        grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        _, threshold = cv2.threshold(
-            grayscale, 230, 255, cv2.THRESH_BINARY_INV
-        )
-        cropped_img_r = threshold[
-            0 : int(height * 0.2), int(width * 0.75) : int(width)
+        binary_image = self.frame_processing(frame)
+        top_left, _, bottom_right, _ = self.tc_area
+        cropped_img_r = binary_image[
+            top_left[1] : bottom_right[1],
+            top_left[0] : bottom_right[0],
         ]
         cv2.imwrite(
             f"./temp/first_last_scene_frames/frame_{frame_number}.png",
@@ -362,6 +379,7 @@ class TextRecognition:
         frames_with_embedded_text_id: List[int],
     ) -> Dict[int, Dict[str, str]]:
         """Generates VFX text.
+
         It reads the text from the images and checks
         if it matches the VFX pattern.
         If it does, it generates a dictionary with the results.
@@ -385,6 +403,7 @@ class TextRecognition:
             desc="Frames checked",
             unit="frames",
         ):
+            # Generates frame number within range to catch the VFX text
             numbers_to_check = self.evenly_spaced_nums_from_range(
                 frame_range, q_nums=5, endpoint=False
             )
@@ -411,11 +430,19 @@ class TextRecognition:
                                 first_frame_of_scene = frame_range[0]
                                 last_frame_of_scene = frame_range[1] - 1
 
+                                # TODO: Program should check if both frames
+                                # don't exist already.
                                 right_first_image = f"./temp/first_last_scene_frames/{first_frame_of_scene}.png"
                                 right_last_image = f"./temp/first_last_scene_frames/{last_frame_of_scene}.png"
                                 try:
-                                    # TODO look into it
-                                    self.open_image_convert_and_save(
+                                    # Generates processed pictures in case the
+                                    # person that crated the video by chance
+                                    # added the text later in the scene or
+                                    # removed it before the scene ends.
+                                    # That way, knowing hat there is the text
+                                    # in the scene, we can check and read TC
+                                    # from the correct images.
+                                    self.generate_processed_pictures(
                                         right_first_image, first_frame_of_scene
                                     )
                                     first_frame_tc = self.read_text_from_image(
@@ -437,7 +464,7 @@ class TextRecognition:
                                         e,
                                     )
                                 try:
-                                    self.open_image_convert_and_save(
+                                    self.generate_processed_pictures(
                                         right_last_image, last_frame_of_scene
                                     )
                                     last_frame_tc = self.read_text_from_image(
@@ -496,66 +523,19 @@ class TextRecognition:
             )
         return found_vfx_text
 
-    def check_previous_frames(
+    def check_previous_or_next_frames(
         self,
-        frames_with_embedded_text_id: List[int],
+        frames_to_check: List[int],
         frame: int,
         found_adr_text: Dict[int, Dict[str, str]],
+        mode: str,
     ) -> Dict[int, Dict[str, str]]:
-        """Checks the previous frames for ADR text.
+        """Checks the previous or next frames for ADR text.
+
         If it finds it, it generates a dictionary with the results.
 
         Args:
-            frames_with_embedded_text_id (List[int]): List of frame numbers
-                with embedded text.
-
-            frame (int): Frame number.
-
-            found_adr_text (Dict[int, Dict[str, str]]):
-                Dictionary with the results.
-
-        Returns:
-            Dict[int, Dict[str, str]]: Dictionary with the results.
-        """
-        index = frames_with_embedded_text_id.index(frame)
-        for curr_frame in frames_with_embedded_text_id[index - 1 :: -1]:
-            image = f"./temp/text_imgs/frame_{curr_frame}.png"
-            text = self.read_text_from_image(image)
-            for line in text:
-                if not line:
-                    break
-                matched_text = self.match_text(line[0], beginning_chars="ADR")
-                if matched_text:
-                    right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
-                    frame_tc = self.read_text_from_image(right_image)
-                    try:
-                        frame_tc = self.tc_cleanup_from_potential_errors(
-                            tc_text=frame_tc, frame_number=curr_frame
-                        )
-                    except ValueError as e:
-                        logging.exception(
-                            f"Error with frame {curr_frame}:\n %s", e
-                        )
-                        frame_tc = "WRONG TC"
-                    if curr_frame not in found_adr_text:
-                        found_adr_text[curr_frame] = {}
-                        found_adr_text[curr_frame]["TEXT"] = matched_text
-                        found_adr_text[curr_frame]["TC"] = frame_tc
-                else:
-                    return found_adr_text
-        return found_adr_text
-
-    def check_next_frames(
-        self,
-        frames_with_embedded_text_id: List[int],
-        frame: int,
-        found_adr_text: Dict[int, Dict[str, str]],
-    ) -> Dict[int, Dict[str, str]]:
-        """Checks the next frames for ADR text.
-        If it finds it, it generates a dictionary with the results.
-
-        Args:
-            frames_with_embedded_text_id (List[int]):
+            frames_to_check (List[int]):
                 List of frame numbers with embedded text.
 
             frame (int): Frame number.
@@ -563,18 +543,34 @@ class TextRecognition:
             found_adr_text (Dict[int, Dict[str, str]]):
                 Dictionary with the results.
 
+            mode (str): Mode to check. Can be "previous" or "next".
+
         Returns:
             Dict[int, Dict[str, str]]: Dictionary with the results.
+            int, optional: New index.
         """
-        index = frames_with_embedded_text_id.index(frame)
-        for curr_frame in frames_with_embedded_text_id[index + 1 :]:
+        index = frames_to_check.index(frame)
+        if mode == "previous":
+            sliced_list = frames_to_check[index - 1 :: -1]
+        elif mode == "next":
+            sliced_list = frames_to_check[index + 1 :]
+        boundry = False
+        last_frame = None
+        # Only check for text in consecutive frames
+        for curr_frame in sliced_list:
+            if last_frame is not None:
+                if abs(curr_frame - last_frame) > 1:
+                    break
             image = f"./temp/text_imgs/frame_{curr_frame}.png"
             text = self.read_text_from_image(image)
-            for line in text:
-                if not line:
-                    break
-                matched_text = self.match_text(line[0], beginning_chars="ADR")
+            # If no text or reached boundry, break the loop
+            if not text or boundry:
+                break
+            found_any_adr = False
+            for line in text[0]:
+                matched_text = self.match_text(line, beginning_chars="ADR")
                 if matched_text:
+                    found_any_adr = True
                     right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
                     frame_tc = self.read_text_from_image(right_image)
                     try:
@@ -590,16 +586,21 @@ class TextRecognition:
                         found_adr_text[curr_frame] = {}
                         found_adr_text[curr_frame]["TEXT"] = matched_text
                         found_adr_text[curr_frame]["TC"] = frame_tc
-                else:
-                    return found_adr_text
-        return found_adr_text
+            # Text can hold multiple values
+            # If not one of the values is ADR, break the loop
+            if not found_any_adr:
+                boundry = True
+            last_frame = curr_frame
+        if mode == "next":
+            new_index = frames_to_check.index(curr_frame)
+            return found_adr_text, new_index
+        else:
+            return found_adr_text
 
     def generate_adr_text(
         self, frames_with_embedded_text_id: List[int]
     ) -> Dict[int, Dict[str, str]]:
-        """Generates ADR text. It reads the text from the images and checks
-        if it matches the ADR pattern.
-        If it does, it generates a dictionary with the results.
+        """Reads the text from the images. Generates ADR text.
 
         Args:
             frames_with_embedded_text_id (List[int]):
@@ -608,19 +609,33 @@ class TextRecognition:
         Returns:
             Dict[int, Dict[str, str]]: Dictionary with the results.
         """
+        frames_to_check = frames_with_embedded_text_id.copy()
         found_adr_text: Dict[int, Dict[str, str]] = {}
         print("\n-Searching for ADR text-")
-        for frame in tqdm(
-            frames_with_embedded_text_id[::15],
+        # for frame in tqdm(
+        #     frames_to_check[::15],
+        #     desc="Frames checked",
+        #     unit="frames",
+        # ):
+        pbar = tqdm(
+            total=len(frames_to_check),
             desc="Frames checked",
             unit="frames",
-        ):
+            leave=True,
+        )
+        i = 0
+        while i < len(frames_to_check):
+            frame = frames_to_check[i]
             left_image = f"./temp/text_imgs/frame_{frame}.png"
             text = self.read_text_from_image(left_image)
-            for line in text:
-                if not line:
-                    continue
-                matched_text = self.match_text(line[0], beginning_chars="ADR")
+            # If empty text, continue to the next frame
+            if not text:
+                i += 15
+                pbar.update(15)
+                continue
+            returning_from_next_boundry = False
+            for line in text[0]:
+                matched_text = self.match_text(line, beginning_chars="ADR")
                 if matched_text:
                     right_image = f"./temp/tc_imgs/frame_{frame}.png"
                     frame_tc = self.read_text_from_image(right_image)
@@ -635,16 +650,31 @@ class TextRecognition:
                         found_adr_text[frame] = {}
                         found_adr_text[frame]["TEXT"] = matched_text
                         found_adr_text[frame]["TC"] = frame_tc
-                        previous_frames = self.check_previous_frames(
-                            frames_with_embedded_text_id, frame, found_adr_text
+                        previous_frames = self.check_previous_or_next_frames(
+                            frames_to_check,
+                            frame,
+                            found_adr_text,
+                            mode="previous",
                         )
-                        next_frames = self.check_next_frames(
-                            frames_with_embedded_text_id, frame, found_adr_text
+                        next_frames, new_index = (
+                            self.check_previous_or_next_frames(
+                                frames_to_check,
+                                frame,
+                                found_adr_text,
+                                mode="next",
+                            )
                         )
+                        returning_from_next_boundry = True
+                        i = new_index + 15
+                        diff = abs(new_index - i)
+                        pbar.update(diff + 15)
                         found_adr_text.update(
                             {**previous_frames, **next_frames}
                         )
-            # pbar.update(1)
+            if not returning_from_next_boundry:
+                i += 15
+                pbar.update(15)
+        # pbar.update(1)
         sorted_dict = {k: found_adr_text[k] for k in sorted(found_adr_text)}
         found_adr_text = self.remove_all_but_border_cases_found(sorted_dict)
         return found_adr_text
@@ -653,6 +683,7 @@ class TextRecognition:
         self, text_dict: Dict[int, Dict[str, str]]
     ) -> Dict[int, Dict[str, str]]:
         """Removes all but the border cases from the found text.
+
         It keeps only the first and last frame of the found text.
         It also adds the real time code to the dictionary.
 

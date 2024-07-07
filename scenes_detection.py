@@ -17,6 +17,7 @@ def detect_all_scenes(
     Returns:
         List[Tuple[FrameTimecode, FrameTimecode]]: List of scenes.
     """
+    #TODO Check if you can set start time
     if video_name is not None:
         video = open_video(video_name)
         scene_manager = SceneManager()
