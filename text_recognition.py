@@ -138,7 +138,7 @@ class TextRecognition:
         pattern = re.compile(beginning_chars + r"\s*(.+)", re.IGNORECASE)
         match = re.search(pattern, text)
         if match is None:
-            return None
+            return ""
         else:
             return match.group()
 
@@ -436,13 +436,21 @@ class TextRecognition:
                     try:
                         image = f"./temp/text_imgs/frame_{frame_id}.png"
                         text = self.read_text_from_image(image, mode="text")
+<<<<<<< Updated upstream
                         for line in text:
                             if not line:
                                 continue
+=======
+                        if not text:
+                            continue
+                        text_found = []
+                        for line in text[0]:
+>>>>>>> Stashed changes
                             matched_text = self.match_text(
-                                line[0], beginning_chars="VFX"
+                                line, beginning_chars="VFX"
                             )
                             if matched_text:
+<<<<<<< Updated upstream
                                 found_vfx_flag = True
                                 first_frame_of_scene = frame_range[0]
                                 last_frame_of_scene = frame_range[1] - 1
@@ -506,29 +514,95 @@ class TextRecognition:
                                         "Error with frame"
                                         f" {last_frame_of_scene}:\n %s",
                                         e,
+=======
+                                text_found.append(matched_text)
+                            continue
+                        if text_found:
+                            vfx_text = "\n".join(text_found)
+                            print(vfx_text)
+                            found_vfx_flag = True
+                            first_frame_of_scene = frame_range[0]
+                            last_frame_of_scene = frame_range[1] - 1
+
+                            # TODO: Program should check if both frames
+                            # don't exist already.
+                            right_first_image = f"./temp/first_last_scene_frames/{first_frame_of_scene}.png"
+                            right_last_image = f"./temp/first_last_scene_frames/{last_frame_of_scene}.png"
+                            try:
+                                # Generates processed pictures in case the
+                                # person that crated the video by chance
+                                # added the text later in the scene or
+                                # removed it before the scene ends.
+                                # That way, knowing hat there is the text
+                                # in the scene, we can check and read TC
+                                # from the correct images.
+                                self.generate_processed_pictures(
+                                    right_first_image, first_frame_of_scene
+                                )
+                                first_frame_tc = self.read_text_from_image(
+                                    f"./temp/first_last_scene_frames/frame_{first_frame_of_scene}.png",
+                                    mode="tc",
+                                )
+                                first_frame_tc = (
+                                    self.tc_cleanup_from_potential_errors(
+                                        tc_text=first_frame_tc,
+                                        frame_number=first_frame_of_scene,
+>>>>>>> Stashed changes
                                     )
-                                    tc_out = last_frame_tc
-                                except ValueError as e:
-                                    logging.exception(
-                                        "Error with frame"
-                                        f" {last_frame_of_scene}:\n %s",
-                                        e,
+                                )
+                            except FileNotFoundError as e:
+                                frames_not_found.append(first_frame_of_scene)
+                                logging.exception(
+                                    "Error with frame"
+                                    f" {first_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                            try:
+                                self.generate_processed_pictures(
+                                    right_last_image, last_frame_of_scene
+                                )
+                                last_frame_tc = self.read_text_from_image(
+                                    f"./temp/first_last_scene_frames/frame_{last_frame_of_scene}.png",
+                                    mode="tc",
+                                )
+                                last_frame_tc = (
+                                    self.tc_cleanup_from_potential_errors(
+                                        tc_text=last_frame_tc,
+                                        frame_number=last_frame_of_scene,
                                     )
-                                    tc_out = last_frame_tc
-                                if first_frame_of_scene not in found_vfx_text:
-                                    found_vfx_text[first_frame_of_scene] = {}
-                                    found_vfx_text[first_frame_of_scene][
-                                        "TEXT"
-                                    ] = matched_text
-                                    found_vfx_text[first_frame_of_scene][
-                                        "TC IN"
-                                    ] = first_frame_tc
-                                    found_vfx_text[first_frame_of_scene][
-                                        "TC OUT"
-                                    ] = tc_out
-                                    found_vfx_text[first_frame_of_scene][
-                                        "FRAME OUT"
-                                    ] = frame_range[1]
+                                )
+                                tc_out = self.read_tc_add_one_frame(
+                                    last_frame_tc
+                                )
+                            except FileNotFoundError as e:
+                                frames_not_found.append(last_frame_of_scene)
+                                logging.exception(
+                                    "Error with frame"
+                                    f" {last_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                                tc_out = last_frame_tc
+                            except ValueError as e:
+                                logging.exception(
+                                    "Error with frame"
+                                    f" {last_frame_of_scene}:\n %s",
+                                    e,
+                                )
+                                tc_out = last_frame_tc
+                            if first_frame_of_scene not in found_vfx_text:
+                                found_vfx_text[first_frame_of_scene] = {}
+                                found_vfx_text[first_frame_of_scene][
+                                    "TEXT"
+                                ] = vfx_text
+                                found_vfx_text[first_frame_of_scene][
+                                    "TC IN"
+                                ] = first_frame_tc
+                                found_vfx_text[first_frame_of_scene][
+                                    "TC OUT"
+                                ] = tc_out
+                                found_vfx_text[first_frame_of_scene][
+                                    "FRAME OUT"
+                                ] = frame_range[1]
                     except FileNotFoundError as e:
                         frames_not_found.append(frame_id)
                         logging.exception(
@@ -811,4 +885,15 @@ class TextRecognition:
 
 
 if __name__ == "__main__":
-    pass
+    # text_recognition = TextRecognition(
+    #     cap=None,
+    #     video=None,
+    #     start_frame=None,
+    #     text_area=[(8, 18), (362, 18), (362, 128), (8, 128)],
+    #     tc_area=[(1568, 22), (1886, 22), (1886, 70), (1568, 70)],
+    # )
+    # text_recognition.video_fps = 25
+    # found_vfx_text = text_recognition.generate_vfx_text(potential_frames_ranges_with_vfx_text, frames_with_embedded_text_id)
+    
+    # for k, v in found_vfx_text.items():
+    #     print(k, v)
