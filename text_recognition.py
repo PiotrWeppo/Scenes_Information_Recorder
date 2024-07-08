@@ -193,6 +193,7 @@ class TextRecognition:
             desc="Scanned frames",
             unit="frames",
             leave=True,
+            ascii=" █",
         )
         frames_counter = 0
         while self.cap.isOpened():
@@ -305,6 +306,7 @@ class TextRecognition:
             potential_frames_ranges_with_vfx_text,
             desc="Generated ",
             unit="imgs",
+            ascii=" █",
         ):
             begining_frame = frame_range[0]
             last_frame = frame_range[1] - 1
@@ -330,15 +332,28 @@ class TextRecognition:
                         )
                         which_frame_from_loop -= 1
 
-    def read_text_from_image(self, image_path: str) -> List[str]:
+    def read_text_from_image(self, image_path: str, mode: str) -> List[str]:
         """Reads text from an image.
 
         Args:
             image_path (str): Image path.
+            mode (str): Mode to read. Can be "text" or "tc".
 
         Returns:
             List[str]: List of found text in the image.
         """
+        options_for_text = (
+            "-c tessedit_char_whitelist='01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?!:"
+            " ' --psm 6 load_system_dawg=false load_freq_dawg=false"
+        )
+        options_for_tc = (
+            "-c tessedit_char_whitelist=:0123456789 --psm 7"
+            " load_system_dawg=false load_freq_dawg=false"
+        )
+        if mode == "text":
+            options = options_for_text
+        elif mode == "tc":
+            options = options_for_tc
         found_text = [
             list(
                 filter(
@@ -346,6 +361,7 @@ class TextRecognition:
                     pytesseract.image_to_string(
                         Image.open(image_path),
                         lang="eng",
+                        config=options,
                     ).splitlines(),
                 )
             )
@@ -402,6 +418,7 @@ class TextRecognition:
             potential_frames_ranges_with_vfx_text,
             desc="Frames checked",
             unit="frames",
+            ascii=" █",
         ):
             # Generates frame number within range to catch the VFX text
             numbers_to_check = self.evenly_spaced_nums_from_range(
@@ -418,7 +435,7 @@ class TextRecognition:
                         break
                     try:
                         image = f"./temp/text_imgs/frame_{frame_id}.png"
-                        text = self.read_text_from_image(image)
+                        text = self.read_text_from_image(image, mode="text")
                         for line in text:
                             if not line:
                                 continue
@@ -446,7 +463,8 @@ class TextRecognition:
                                         right_first_image, first_frame_of_scene
                                     )
                                     first_frame_tc = self.read_text_from_image(
-                                        f"./temp/first_last_scene_frames/frame_{first_frame_of_scene}.png"
+                                        f"./temp/first_last_scene_frames/frame_{first_frame_of_scene}.png",
+                                        mode="tc",
                                     )
                                     first_frame_tc = (
                                         self.tc_cleanup_from_potential_errors(
@@ -468,7 +486,8 @@ class TextRecognition:
                                         right_last_image, last_frame_of_scene
                                     )
                                     last_frame_tc = self.read_text_from_image(
-                                        f"./temp/first_last_scene_frames/frame_{last_frame_of_scene}.png"
+                                        f"./temp/first_last_scene_frames/frame_{last_frame_of_scene}.png",
+                                        mode="tc",
                                     )
                                     last_frame_tc = (
                                         self.tc_cleanup_from_potential_errors(
@@ -562,7 +581,7 @@ class TextRecognition:
                 if abs(curr_frame - last_frame) > 1:
                     break
             image = f"./temp/text_imgs/frame_{curr_frame}.png"
-            text = self.read_text_from_image(image)
+            text = self.read_text_from_image(image, mode="text")
             # If no text or reached boundry, break the loop
             if not text or boundry:
                 break
@@ -572,7 +591,9 @@ class TextRecognition:
                 if matched_text:
                     found_any_adr = True
                     right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
-                    frame_tc = self.read_text_from_image(right_image)
+                    frame_tc = self.read_text_from_image(
+                        right_image, mode="tc"
+                    )
                     try:
                         frame_tc = self.tc_cleanup_from_potential_errors(
                             tc_text=frame_tc, frame_number=curr_frame
@@ -622,12 +643,13 @@ class TextRecognition:
             desc="Frames checked",
             unit="frames",
             leave=True,
+            ascii=" █",
         )
         i = 0
         while i < len(frames_to_check):
             frame = frames_to_check[i]
             left_image = f"./temp/text_imgs/frame_{frame}.png"
-            text = self.read_text_from_image(left_image)
+            text = self.read_text_from_image(left_image, mode="text")
             # If empty text, continue to the next frame
             if not text:
                 i += 15
@@ -638,7 +660,9 @@ class TextRecognition:
                 matched_text = self.match_text(line, beginning_chars="ADR")
                 if matched_text:
                     right_image = f"./temp/tc_imgs/frame_{frame}.png"
-                    frame_tc = self.read_text_from_image(right_image)
+                    frame_tc = self.read_text_from_image(
+                        right_image, mode="tc"
+                    )
                     try:
                         frame_tc = self.tc_cleanup_from_potential_errors(
                             tc_text=frame_tc, frame_number=frame
