@@ -448,7 +448,6 @@ class TextRecognition:
                             continue
                         if text_found:
                             vfx_text = "\n".join(text_found)
-                            print(vfx_text)
                             found_vfx_flag = True
                             first_frame_of_scene = frame_range[0]
                             last_frame_of_scene = frame_range[1] - 1

@@ -22,7 +22,11 @@ def main() -> None:
     
     print("Welcome to the VFX/ADR text detection program.\n")
     gui = AppGui()
-    video_names = find_video_file()
+    try:
+        video_names = find_video_file()
+    except AttributeError:
+        input("App closed before processing.\n\nPress Enter to exit: ")
+        sys.exit() 
     gui.create_main_screen(video_names)
     video = gui.video_name
     start_logging_info(video)
