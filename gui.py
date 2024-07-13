@@ -8,21 +8,31 @@ from PIL import Image, ImageTk
 
 class AppGui:
     """
-    Class for creating the GUI for the program. The GUI is used to select the video file and set the detection areas for the text.
+    Class for creating the GUI for the program.
+    
+    The GUI is used to select the video file and set the detection areas for the text.
+    
         Args:
             main_window (tk.Tk): The main window of the program.
             main_frame (tk.Frame): The main frame of the program.
             cap (cv2.VideoCapture): The video capture object.
             video_fps (float): The frames per second of the video.
-            text_picture_clicks (List[Tuple[int, int]]): List of coordinates for the text detection area.
-            tc_picture_clicks (List[Tuple[int, int]]): List of coordinates for the timecode detection area.
-            text_area (List[Tuple[int, int]]): List of coordinates for the text detection area.
-            tc_area (List[Tuple[int, int]]): List of coordinates for the timecode detection area.
+            text_picture_clicks (List[Tuple[int, int]]): List of coordinates
+                for the text detection area.
+            tc_picture_clicks (List[Tuple[int, int]]): List of coordinates for
+                the timecode detection area.
+            text_area (List[Tuple[int, int]]): List of coordinates for the
+                text detection area.
+            tc_area (List[Tuple[int, int]]): List of coordinates for the
+                timecode detection area.
             video_label (tk.Label): Label for displaying the video frames.
-            scale_third_screen (tk.Scale): Scale for selecting the frame to display.
+            scale_third_screen (tk.Scale): Scale for selecting the frame to
+                display.
             current_button (str): The current button that is selected.
-            text_button (tk.Button): Button for selecting the text detection area.
-            tc_button (tk.Button): Button for selecting the timecode detection area.
+            text_button (tk.Button): Button for selecting the text detection
+                area.
+            tc_button (tk.Button): Button for selecting the timecode detection
+            area.
             submit_btn3 (tk.Button): Button for submitting the detection areas.
             check_var (tk.IntVar): Variable for the check button.
             main_frame (tk.Frame): The main frame of the program.

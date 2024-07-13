@@ -19,7 +19,7 @@ from info_logger import start_logging_info
 
 def main() -> None:
     """Main function of the program."""
-    
+
     print("Welcome to the VFX/ADR text detection program.\n")
     gui = AppGui()
     try:
@@ -59,7 +59,7 @@ def main() -> None:
     logging.debug(f"scene_list=\n{scene_list}\n")
 
     frames_ranges_with_potential_text = (
-        text_recognition.check_if_vfx_text_in_found_scenes(
+        text_recognition.check_if_scenes_can_contian_text(
             scene_list, frames_with_embedded_text_id
         )
     )
