@@ -13,7 +13,15 @@ bin-release/
 *.txt
 *.xlsx
 *.ods
+*/
+!tests/
 */*
+!tests/**
+
+# Include resources/images/ directory
+!resources/
+!resources/images/
+!resources/images/**
 
 #Pipenv files
 Pipfile

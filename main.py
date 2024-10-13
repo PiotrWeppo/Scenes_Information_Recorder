@@ -1,73 +1,120 @@
+#!/usr/bin/env python3
+# *_* coding: utf-8 *_*
+"""This module deploys VFX/ADR text detection program."""
+
 import logging
 import sys
-from text_recognition import (
-    generate_imgs_with_text_from_video,
-    check_if_vfx_text_in_found_scenes,
-    generate_pictures_for_each_scene,
-    generate_vfx_text,
-    generate_adr_text,
-    merge_dicts,
-    add_real_timestamps,
-    set_video_start_time,
-)
+
+# from gui import AppGui
+from PySide6.QtWidgets import QApplication
+from pyside_gui import MainWindow
+from text_recognition import TextRecognition
 from files_operations import (
-    find_video_file,
     create_folder,
     delete_folder,
     delete_temp_folder_on_error_and_exit,
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
-from info_logger import start_logging_info
+from info_logger import start_logging_info, delete_logging_file
 
 
-def main():
-    print("Welcome to the VFX/ADR text detection program.\n")
-    video = find_video_file()
-    start_logging_info(video)
-    start_frame = set_video_start_time(video)
+class DataHandler:
+    def __init__(self):
+        self.received_data = None
+
+    def handle_data(self, data):
+        self.received_data = data
+
+
+def main() -> None:
+    """Main function of the program."""
+
+    print("\nWelcome to the VFX/ADR text detection program.\n")
+    # gui = AppGui()
+    app = QApplication()
+    app.setStyle("Fusion")
+    data_handler = DataHandler()
+    window = MainWindow(app)
+    window.data_signal.connect(
+        data_handler.handle_data
+    )  # Connect the signal to the slot
+    window.show()
+    app.exec()
+    gui_data = data_handler.received_data
+    if gui_data is None or len(gui_data) < 5:
+        input("App closed before processing.\n\nPress Enter to exit: ")
+        sys.exit()
+    video = gui_data["video_path"]
+    files_path = gui_data["files_save_dir"]
+    text_area = gui_data["text_areas"]["VFX/ADR"]
+    tc_area = gui_data["text_areas"]["TC"]
+    cv2_cap_obj = gui_data["cv2_cap_obj"]
+    start_logging_info(video, files_path)
+    if gui_data["start_frame"] is not None:
+        start_time = gui_data["start_frame"]
+    else:
+        start_time = 0
+    if gui_data["text_areas"] is None:
+        logging.error("App closed before processing. Exiting.")
+        input("App closed before processing.\n\nPress Enter to exit: ")
+        sys.exit()
     create_folder(
-        "./temp/text_imgs",
-        "./temp/tc_imgs",
-        "./temp/thumbnails",
-        "./temp/first_last_scene_frames",
+        f"{files_path}/temp/text_imgs",
+        f"{files_path}/temp/tc_imgs",
+        f"{files_path}/temp/thumbnails",
+        f"{files_path}/temp/first_last_scene_frames",
     )
-    frames_with_embedded_text_id = generate_imgs_with_text_from_video(
-        video, start_frame
+    text_recognition = TextRecognition(
+        cv2_cap_obj, files_path, video, start_time, text_area, tc_area
+    )
+    frames_with_embedded_text_id = (
+        text_recognition.generate_imgs_with_text_from_video()
     )
     logging.debug(
         f"frames_with_embedded_text_id=\n{frames_with_embedded_text_id}\n"
     )
     scene_list = detect_all_scenes(video)
-    # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    # print(loggers)
+    print("finished scene list")
     logging.debug(f"scene_list=\n{scene_list}\n")
-
-    frames_ranges_with_potential_text = check_if_vfx_text_in_found_scenes(
-        scene_list, frames_with_embedded_text_id
+    frames_ranges_with_potential_text = (
+        text_recognition.check_if_scenes_can_contian_text(
+            scene_list, frames_with_embedded_text_id
+        )
     )
     logging.debug(
         f"frames_ranges_with_potential_text=\n{frames_ranges_with_potential_text}\n"
     )
-    # print(frames_with_embedded_text_id)
-    generate_pictures_for_each_scene(video, frames_ranges_with_potential_text)
-    found_vfx_text = generate_vfx_text(
-        video, frames_ranges_with_potential_text, frames_with_embedded_text_id
+    text_recognition.generate_pictures_for_each_scene(
+        frames_ranges_with_potential_text
+    )
+    found_vfx_text = text_recognition.generate_vfx_text(
+        frames_ranges_with_potential_text, frames_with_embedded_text_id
     )
     logging.debug(f"found_vfx_text=\n{found_vfx_text}\n")
 
-    found_adr_text = generate_adr_text(video, frames_with_embedded_text_id)
+    found_adr_text = text_recognition.generate_adr_text(
+        frames_with_embedded_text_id
+    )
     logging.debug(f"found_adr_text=\n{found_adr_text}\n")
 
-    merged_text_dict = merge_dicts(found_vfx_text, found_adr_text)
+    merged_text_dict = text_recognition.merge_dicts(
+        found_vfx_text, found_adr_text
+    )
     logging.debug(f"merged_text_dict=\n{merged_text_dict}\n")
 
-    final_text_dict = add_real_timestamps(merged_text_dict, video)
+    final_text_dict = text_recognition.add_real_timestamps(merged_text_dict)
     logging.debug(f"final_text_dict=\n{final_text_dict}\n")
+    loggers = [
+        logging.getLogger(name) for name in logging.root.manager.loggerDict
+    ]
+    print(loggers)
 
     df = create_dataframe(final_text_dict)
-    create_xlsx_file(df, video)
-    delete_folder("./temp")
+    create_xlsx_file(df, video, files_path)
+    delete_folder(f"{files_path}/temp")
+    delete_logging_file(video, files_path)
+
     input("Done.\n\nPress Enter to exit: ")
     sys.exit()
 
@@ -77,4 +124,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.exception("Main crashed. Error below:\n\n%s", e)
-        delete_temp_folder_on_error_and_exit("Main crashed.")
+        # delete_temp_folder_on_error_and_exit("Main crashed.")
