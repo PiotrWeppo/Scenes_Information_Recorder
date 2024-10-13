@@ -4,50 +4,69 @@
 
 import logging
 import sys
-from gui import AppGui
+
+# from gui import AppGui
+from PySide6.QtWidgets import QApplication
+from pyside_gui import MainWindow
 from text_recognition import TextRecognition
 from files_operations import (
-    find_video_file,
     create_folder,
     delete_folder,
     delete_temp_folder_on_error_and_exit,
 )
 from scenes_detection import detect_all_scenes
 from xlsx_creator import create_dataframe, create_xlsx_file
-from info_logger import start_logging_info
+from info_logger import start_logging_info, delete_logging_file
+
+
+class DataHandler:
+    def __init__(self):
+        self.received_data = None
+
+    def handle_data(self, data):
+        self.received_data = data
 
 
 def main() -> None:
     """Main function of the program."""
 
-    print("Welcome to the VFX/ADR text detection program.\n")
-    gui = AppGui()
-    try:
-        video_names = find_video_file()
-    except AttributeError:
+    print("\nWelcome to the VFX/ADR text detection program.\n")
+    # gui = AppGui()
+    app = QApplication()
+    app.setStyle("Fusion")
+    data_handler = DataHandler()
+    window = MainWindow(app)
+    window.data_signal.connect(
+        data_handler.handle_data
+    )  # Connect the signal to the slot
+    window.show()
+    app.exec()
+    gui_data = data_handler.received_data
+    if gui_data is None or len(gui_data) < 5:
         input("App closed before processing.\n\nPress Enter to exit: ")
-        sys.exit() 
-    gui.create_main_screen(video_names)
-    video = gui.video_name
-    start_logging_info(video)
-    if gui.scale_value is not None:
-        start_time = gui.scale_value.get()
+        sys.exit()
+    video = gui_data["video_path"]
+    files_path = gui_data["files_save_dir"]
+    text_area = gui_data["text_areas"]["VFX/ADR"]
+    tc_area = gui_data["text_areas"]["TC"]
+    cv2_cap_obj = gui_data["cv2_cap_obj"]
+    start_logging_info(video, files_path)
+    if gui_data["start_frame"] is not None:
+        start_time = gui_data["start_frame"]
     else:
         start_time = 0
-    if gui.text_area is None or gui.tc_area is None:
+    if gui_data["text_areas"] is None:
         logging.error("App closed before processing. Exiting.")
         input("App closed before processing.\n\nPress Enter to exit: ")
         sys.exit()
-    text_area = gui.text_area
-    tc_area = gui.tc_area
     create_folder(
-        "./temp/text_imgs",
-        "./temp/tc_imgs",
-        "./temp/thumbnails",
-        "./temp/first_last_scene_frames",
+        f"{files_path}/temp/text_imgs",
+        f"{files_path}/temp/tc_imgs",
+        f"{files_path}/temp/thumbnails",
+        f"{files_path}/temp/first_last_scene_frames",
     )
     text_recognition = TextRecognition(
-        gui.cap, video, start_time, text_area, tc_area
+        cv2_cap_obj, files_path, video, start_time, text_area, tc_area
     )
     frames_with_embedded_text_id = (
         text_recognition.generate_imgs_with_text_from_video()
@@ -56,8 +75,8 @@ def main() -> None:
         f"frames_with_embedded_text_id=\n{frames_with_embedded_text_id}\n"
     )
     scene_list = detect_all_scenes(video)
+    print("finished scene list")
     logging.debug(f"scene_list=\n{scene_list}\n")
-
     frames_ranges_with_potential_text = (
         text_recognition.check_if_scenes_can_contian_text(
             scene_list, frames_with_embedded_text_id
@@ -86,10 +105,16 @@ def main() -> None:
 
     final_text_dict = text_recognition.add_real_timestamps(merged_text_dict)
     logging.debug(f"final_text_dict=\n{final_text_dict}\n")
+    loggers = [
+        logging.getLogger(name) for name in logging.root.manager.loggerDict
+    ]
+    print(loggers)
 
     df = create_dataframe(final_text_dict)
-    create_xlsx_file(df, video)
-    delete_folder("./temp")
+    create_xlsx_file(df, video, files_path)
+    delete_folder(f"{files_path}/temp")
+    delete_logging_file(video, files_path)
+
     input("Done.\n\nPress Enter to exit: ")
     sys.exit()
 
@@ -99,4 +124,4 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.exception("Main crashed. Error below:\n\n%s", e)
-        delete_temp_folder_on_error_and_exit("Main crashed.")
+        # delete_temp_folder_on_error_and_exit("Main crashed.")

@@ -23,6 +23,7 @@ class TextRecognition:
 
     Args:
         cap (cv2.VideoCapture): Video capture object.
+        files_path (str): Path to where the files will be saved.
         video (str): Video name.
         start_frame (int): Video start frame point.
         text_area (List[Tuple[int, int]]): Text area.
@@ -32,12 +33,14 @@ class TextRecognition:
     def __init__(
         self,
         cap: cv2.VideoCapture,
+        files_path: str,
         video: str,
         start_frame: int,
         text_area: List[Tuple[int, int]],
         tc_area: List[Tuple[int, int]],
     ) -> None:
         self.cap: cv2.VideoCapture = cap
+        self.files_path: str = files_path
         self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.video_length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.video: str = video
@@ -219,8 +222,14 @@ class TextRecognition:
                         top_left[0] : bottom_right[0],
                     ]
                     filename = f"frame_{current_frame}.png"
-                    cv2.imwrite("./temp/text_imgs/" + filename, cropped_img_l)
-                    cv2.imwrite("./temp/tc_imgs/" + filename, cropped_img_r)
+                    cv2.imwrite(
+                        f"{self.files_path}/temp/text_imgs/" + filename,
+                        cropped_img_l,
+                    )
+                    cv2.imwrite(
+                        f"{self.files_path}/temp/tc_imgs/" + filename,
+                        cropped_img_r,
+                    )
                     # frames_with_embedded_text_id.append(int(filename.split(".")[0][6:]))
                     frames_with_embedded_text_id.append(int(current_frame))
                     frames_counter += 1
@@ -348,16 +357,17 @@ class TextRecognition:
                     if which_frame_from_loop == 0:
                         img = cv2.resize(frame, None, fx=0.25, fy=0.25)
                         cv2.imwrite(
-                            f"./temp/thumbnails/{frame_number}.png", img
+                            f"{self.files_path}/temp/thumbnails/{frame_number}.png",
+                            img,
                         )
                         cv2.imwrite(
-                            f"./temp/first_last_scene_frames/{frame_number}.png",
+                            f"{self.files_path}/temp/first_last_scene_frames/{frame_number}.png",
                             frame,
                         )
                         which_frame_from_loop += 1
                     elif which_frame_from_loop == 1:
                         cv2.imwrite(
-                            f"./temp/first_last_scene_frames/{frame_number}.png",
+                            f"{self.files_path}/temp/first_last_scene_frames/{frame_number}.png",
                             frame,
                         )
                         which_frame_from_loop -= 1
@@ -372,13 +382,16 @@ class TextRecognition:
         Returns:
             List[str]: List of found text in the image.
         """
+        allowlist = (
+            " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?!:"
+        )
         options_for_text = (
-            "-c tessedit_char_whitelist='01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?!:"
-            " ' --psm 6 load_system_dawg=false load_freq_dawg=false"
+            "--psm 6 -c load_system_dawg=false load_freq_dawg=false"
+            f" tessedit_char_whitelist={allowlist}"
         )
         options_for_tc = (
-            "-c tessedit_char_whitelist=:0123456789 --psm 7"
-            " load_system_dawg=false load_freq_dawg=false"
+            "--psm 7 -c tessedit_char_whitelist=:0123456789"
+            " load_system_dawg=false -c load_freq_dawg=false"
         )
         if mode == "text":
             options = options_for_text
@@ -415,7 +428,7 @@ class TextRecognition:
             top_left[0] : bottom_right[0],
         ]
         cv2.imwrite(
-            f"./temp/first_last_scene_frames/frame_{frame_number}.png",
+            f"{self.files_path}/temp/first_last_scene_frames/frame_{frame_number}.png",
             cropped_img_r,
         )
 
@@ -465,7 +478,7 @@ class TextRecognition:
                 if frame_id > frame_range[1] - 1:
                     break
                 try:
-                    image = f"./temp/text_imgs/frame_{frame_id}.png"
+                    image = f"{self.files_path}/temp/text_imgs/frame_{frame_id}.png"
                     text = self.read_text_from_image(image, mode="text")
                     if not text:
                         continue
@@ -494,10 +507,8 @@ class TextRecognition:
 
                 # TODO: Program should check if both frames
                 # don't exist already.
-                right_first_image = f"./temp/first_last_scene_frames/{first_frame_of_scene}.png"
-                right_last_image = (
-                    f"./temp/first_last_scene_frames/{last_frame_of_scene}.png"
-                )
+                right_first_image = f"{self.files_path}/temp/first_last_scene_frames/{first_frame_of_scene}.png"
+                right_last_image = f"{self.files_path}/temp/first_last_scene_frames/{last_frame_of_scene}.png"
                 try:
                     # Generates processed pictures in case the
                     # person that crated the video by chance
@@ -510,7 +521,7 @@ class TextRecognition:
                         right_first_image, first_frame_of_scene
                     )
                     first_frame_tc = self.read_text_from_image(
-                        f"./temp/first_last_scene_frames/frame_{first_frame_of_scene}.png",
+                        f"{self.files_path}/temp/first_last_scene_frames/frame_{first_frame_of_scene}.png",
                         mode="tc",
                     )
                     first_frame_tc = self.tc_cleanup_from_potential_errors(
@@ -528,7 +539,7 @@ class TextRecognition:
                         right_last_image, last_frame_of_scene
                     )
                     last_frame_tc = self.read_text_from_image(
-                        f"./temp/first_last_scene_frames/frame_{last_frame_of_scene}.png",
+                        f"{self.files_path}/temp/first_last_scene_frames/frame_{last_frame_of_scene}.png",
                         mode="tc",
                     )
                     last_frame_tc = self.tc_cleanup_from_potential_errors(
@@ -606,7 +617,7 @@ class TextRecognition:
             if last_frame is not None:
                 if abs(curr_frame - last_frame) > 1:
                     break
-            image = f"./temp/text_imgs/frame_{curr_frame}.png"
+            image = f"{self.files_path}/temp/text_imgs/frame_{curr_frame}.png"
             text = self.read_text_from_image(image, mode="text")
             # If no text or reached boundry, break the loop
             if not text or boundry:
@@ -616,7 +627,7 @@ class TextRecognition:
                 matched_text = self.match_text(line, beginning_chars="ADR")
                 if matched_text:
                     found_any_adr = True
-                    right_image = f"./temp/tc_imgs/frame_{curr_frame}.png"
+                    right_image = f"{self.files_path}/temp/tc_imgs/frame_{curr_frame}.png"
                     frame_tc = self.read_text_from_image(
                         right_image, mode="tc"
                     )
@@ -674,7 +685,7 @@ class TextRecognition:
         i = 0
         while i < len(frames_to_check):
             frame = frames_to_check[i]
-            left_image = f"./temp/text_imgs/frame_{frame}.png"
+            left_image = f"{self.files_path}/temp/text_imgs/frame_{frame}.png"
             text = self.read_text_from_image(left_image, mode="text")
             # If empty text, continue to the next frame
             if not text:
@@ -685,7 +696,9 @@ class TextRecognition:
             for line in text[0]:
                 matched_text = self.match_text(line, beginning_chars="ADR")
                 if matched_text:
-                    right_image = f"./temp/tc_imgs/frame_{frame}.png"
+                    right_image = (
+                        f"{self.files_path}/temp/tc_imgs/frame_{frame}.png"
+                    )
                     frame_tc = self.read_text_from_image(
                         right_image, mode="tc"
                     )

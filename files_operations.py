@@ -10,7 +10,7 @@ import shutil
 
 def find_video_file() -> List[str]:
     """Find video files in the current directory. Return a list of video files. If no video files are found, exit the program.
-    
+
     Returns:
         List[str]: List of video files.
     """
@@ -28,25 +28,23 @@ def find_video_file() -> List[str]:
 
 def list_of_pictures(folder_name: str) -> List[str]:
     """List all the pictures in a folder. Return a list of pictures sorted by their name.
-    
+
     Args:
         folder_name (str): Folder name.
-        
+
     Returns:
         List[str]: List of pictures sorted by their name.
     """
     files = glob.glob(os.path.join(folder_name, "*.png"))
     files.sort(
-        key=lambda x: [
-            int(c) if c.isdigit() else c for c in re.split(r"(\d+)", x)
-        ]
+        key=lambda x: [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", x)]
     )
     return files
 
 
 def create_folder(*dir_paths: str) -> None:
     """Create temporary folders.
-    
+
     Args:
         *dir_paths (str): Folder names.
     """
@@ -60,7 +58,7 @@ def create_folder(*dir_paths: str) -> None:
 
 def delete_folder(*dir_paths: str) -> None:
     """Delete temporary folders.
-    
+
     Args:
         *dir_paths (str): Folder names.
     """
@@ -75,7 +73,7 @@ def delete_folder(*dir_paths: str) -> None:
 
 def copy_picture_from_to_folder(source_path: str, destination_path: str) -> None:
     """Copy a picture from one folder to another.
-    
+
     Args:
         source_path (str): Source path.
         destination_path (str): Destination path.
@@ -83,9 +81,11 @@ def copy_picture_from_to_folder(source_path: str, destination_path: str) -> None
     shutil.copy(source_path, destination_path)
 
 
-def delete_temp_folder_on_error_and_exit(optional_print: str = None) -> None:
+def delete_temp_folder_on_error_and_exit(
+    dir_path: str, optional_print: str = None
+) -> None:
     """Delete temporary folders on error and exit the program.
-    
+
     Args:
         optional_print (str, optional): Optional message to print. Defaults to None.
     """
@@ -95,7 +95,7 @@ def delete_temp_folder_on_error_and_exit(optional_print: str = None) -> None:
         "\nAn error occurred. Check log file. Delete temporary files before closing? (y/n): "
     )
     if choice.lower() in ["y", "yes", ""]:
-        delete_folder("./temp")
+        delete_folder(f"{dir_path}/temp")
         print("\nTemporary files deleted.")
     input("No files deleted. Press Enter to exit: ")
     sys.exit()
