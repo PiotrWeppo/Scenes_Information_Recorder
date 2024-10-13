@@ -184,7 +184,9 @@ class VideoContainer(QWidget):
                 constrained_point = self.constrainPointToImageBounds(
                     adjusted_point.toPoint()
                 )
-                self.start_point = self.adjustPointForScaling(constrained_point)
+                self.start_point = self.adjustPointForScaling(
+                    constrained_point
+                )
                 self.end_point = self.start_point
                 self.is_drawing = True
                 self.update()
@@ -243,9 +245,7 @@ class VideoContainer(QWidget):
             rect = QRect(self.start_point, self.end_point)
             temp_painter.drawRect(rect)
             temp_painter.end()
-            self.label.setPixmap(
-                temp_image
-            )
+            self.label.setPixmap(temp_image)
 
     def try_draw_rectangles(self, image):
         if self.rectangles:
@@ -347,17 +347,19 @@ class MainWindow(QWidget):
         self.init_ui()
         self.toggleTheme()
         self.resize(800, 600)  # Set the initial size of the window to 800x600
-        
+
     def showEvent(self, event):
         self.centerWindow()
         super().showEvent(event)
 
     def centerWindow(self):
-        center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        center = QScreen.availableGeometry(
+            QApplication.primaryScreen()
+        ).center()
         geo = self.frameGeometry()
         geo.moveCenter(center)
         self.move(geo.topLeft())
-    
+
     def init_ui(self):
         # Main layout
         layout = QVBoxLayout()
@@ -540,11 +542,29 @@ class MainWindow(QWidget):
     def toggleTheme(self):
         if self.dark_mode:
             apply_dark_theme(self.app)
-            self.toggle_theme_button.setIcon(QIcon("./resources/images/light_mode.png"))
+            self.toggle_theme_button.setIcon(
+                QIcon("./resources/images/light_mode.png")
+            )
         else:
             apply_light_theme(self.app)
-            self.toggle_theme_button.setIcon(QIcon("./resources/images/dark_mode.png"))
+            self.toggle_theme_button.setIcon(
+                QIcon("./resources/images/dark_mode.png")
+            )
         self.dark_mode = not self.dark_mode
+    
+    def closeEvent(self, event):
+        if event.spontaneous(): # If triggered by the user
+            reply = QMessageBox.question(
+                self,
+                "Quit Application",
+                "Are you sure you want to quit?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
 
 
 class SecondWindow(QWidget):
@@ -562,13 +582,15 @@ class SecondWindow(QWidget):
         # Get total frame count
         # self.cap.release()
         self.init_ui()
-    
+
     def showEvent(self, event):
         self.centerWindow()
         super().showEvent(event)
 
     def centerWindow(self):
-        center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        center = QScreen.availableGeometry(
+            QApplication.primaryScreen()
+        ).center()
         geo = self.frameGeometry()
         geo.moveCenter(center)
         self.move(geo.topLeft())
@@ -752,6 +774,20 @@ class SecondWindow(QWidget):
         self.video_screen.thread.setFrameNumber(value)
         self.video_screen.thread.start()
 
+    def closeEvent(self, event):
+        if event.spontaneous(): # If triggered by the user
+            reply = QMessageBox.question(
+                self,
+                "Quit Application",
+                "Are you sure you want to quit?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
+
 
 class ThirdWindow(QWidget):
 
@@ -769,13 +805,15 @@ class ThirdWindow(QWidget):
         self.init_ui()
         self.centerWindow()
         self.data = {}
-    
+
     def showEvent(self, event):
         self.centerWindow()
         super().showEvent(event)
 
     def centerWindow(self):
-        center = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        center = QScreen.availableGeometry(
+            QApplication.primaryScreen()
+        ).center()
         geo = self.frameGeometry()
         geo.moveCenter(center)
         self.move(geo.topLeft())
@@ -884,8 +922,22 @@ class ThirdWindow(QWidget):
             )
 
     def closeEvent(self, event):
-        self.data_signal.emit(self.data)
-        super().closeEvent(event)
+        if event.spontaneous(): # If triggered by the user
+            self.video_screen.thread.stop()
+            reply = QMessageBox.question(
+                self,
+                "Quit Application",
+                "Are you sure you want to quit?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+                )
+            if reply == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            self.data_signal.emit(self.data)
+            super().closeEvent(event)
 
     def update_slider_label_postion(self):
         value = self.slider.value()
@@ -915,12 +967,6 @@ class ThirdWindow(QWidget):
         self.slider_label.move(label_x, label_y)
         self.slider_label.setText(value_str)
 
-    def centerWindow(self):
-        screen_geometry = QGuiApplication.primaryScreen().availableGeometry()
-        window_geometry = self.frameGeometry()
-        window_geometry.moveCenter(screen_geometry.center())
-        self.move(window_geometry.topLeft())
-
     # Step 2: Override the resizeEvent method
     def resizeEvent(self, event):
         self.update_slider_label_postion()
@@ -934,7 +980,6 @@ class ThirdWindow(QWidget):
             value
         )  # Pass the slider value to the thread
         self.video_screen.thread.start()
-
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
