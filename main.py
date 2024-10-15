@@ -43,7 +43,7 @@ def main() -> None:
     app.exec()
     gui_data = data_handler.received_data
     if gui_data is None or len(gui_data) < 5:
-        input("App closed before processing.\n\nPress Enter to exit: ")
+        print("App closed before processing. Goodbye.")
         sys.exit()
     video = gui_data["video_path"]
     files_path = gui_data["files_save_dir"]
@@ -55,10 +55,6 @@ def main() -> None:
         start_time = gui_data["start_frame"]
     else:
         start_time = 0
-    if gui_data["text_areas"] is None:
-        logging.error("App closed before processing. Exiting.")
-        input("App closed before processing.\n\nPress Enter to exit: ")
-        sys.exit()
     create_folder(
         f"{files_path}/temp/text_imgs",
         f"{files_path}/temp/tc_imgs",
@@ -78,7 +74,7 @@ def main() -> None:
     print("finished scene list")
     logging.debug(f"scene_list=\n{scene_list}\n")
     frames_ranges_with_potential_text = (
-        text_recognition.check_if_scenes_can_contian_text(
+        text_recognition.check_if_scenes_can_contain_text(
             scene_list, frames_with_embedded_text_id
         )
     )
@@ -105,10 +101,6 @@ def main() -> None:
 
     final_text_dict = text_recognition.add_real_timestamps(merged_text_dict)
     logging.debug(f"final_text_dict=\n{final_text_dict}\n")
-    loggers = [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict
-    ]
-    print(loggers)
 
     df = create_dataframe(final_text_dict)
     create_xlsx_file(df, video, files_path)
