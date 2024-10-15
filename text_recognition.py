@@ -255,7 +255,7 @@ class TextRecognition:
         )
         return threshold
 
-    def check_if_scenes_can_contian_text(
+    def check_if_scenes_can_contain_text(
         self,
         scene_list: List[Tuple[FrameTimecode, FrameTimecode]],
         frames_with_embedded_text_id: List[int],

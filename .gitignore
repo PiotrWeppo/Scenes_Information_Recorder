@@ -17,11 +17,14 @@ bin-release/
 !tests/
 */*
 !tests/**
+!requirements.txt
 
 # Include resources/images/ directory
 !resources/
 !resources/images/
 !resources/images/**
+!images/
+!images/**
 
 #Pipenv files
 Pipfile
