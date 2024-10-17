@@ -513,10 +513,11 @@ class MainWindow(QWidget):
 
     def go_to_second_screen(self):
         self.second_window = SecondWindow(
-            video_path=self.file_line_edit.text()
+            video_path=self.file_line_edit.text(),
+            save_hq_pics=self.save_pictures_checkbox.isChecked(),
         )
         self.second_window.data_signal.connect(
-            self.handle_data_from_third_window
+            self.handle_data_from_third_window,
         )
         self.second_window.show_main_window.connect(
             self.show
@@ -525,7 +526,10 @@ class MainWindow(QWidget):
         self.close()  # Close the MainWindow
 
     def go_to_third_screen(self):
-        self.third_window = ThirdWindow(video_path=self.file_line_edit.text())
+        self.third_window = ThirdWindow(
+            video_path=self.file_line_edit.text(),
+            save_hq_pics=self.save_pictures_checkbox.isChecked(),
+        )
         self.third_window.data_signal.connect(
             self.handle_data_from_third_window
         )
@@ -553,7 +557,7 @@ class MainWindow(QWidget):
         self.dark_mode = not self.dark_mode
     
     def closeEvent(self, event):
-        if event.spontaneous(): # If triggered by the user
+        if event.spontaneous():  # If triggered by the user
             reply = QMessageBox.question(
                 self,
                 "Quit Application",
@@ -572,10 +576,11 @@ class SecondWindow(QWidget):
 
     show_main_window = Signal()
 
-    def __init__(self, video_path, parent=None):
+    def __init__(self, video_path, save_hq_pics=False, parent=None):
         super().__init__(parent)
         self.third_window = None
         self.video_path = video_path
+        self.save_hq_pics = save_hq_pics
         self.cap = cv2.VideoCapture(self.video_path)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
@@ -727,7 +732,9 @@ class SecondWindow(QWidget):
 
     def go_to_third_screen(self):
         self.third_window = ThirdWindow(
-            video_path=self.video_path, start_frame=self.slider.value()
+            video_path=self.video_path,
+            save_hq_pics=self.save_hq_pics,
+            start_frame=self.slider.value(),
         )
         self.third_window.data_signal.connect(
             self.handle_data_from_third_window
@@ -775,7 +782,7 @@ class SecondWindow(QWidget):
         self.video_screen.thread.start()
 
     def closeEvent(self, event):
-        if event.spontaneous(): # If triggered by the user
+        if event.spontaneous():  # If triggered by the user
             reply = QMessageBox.question(
                 self,
                 "Quit Application",
@@ -794,10 +801,13 @@ class ThirdWindow(QWidget):
     show_second_window = Signal()
     data_signal = Signal(dict)
 
-    def __init__(self, video_path, start_frame=0, parent=None):
+    def __init__(
+        self, video_path, start_frame=0, save_hq_pics=False, parent=None
+    ):
         super().__init__(parent)
         self.video_path = video_path
         self.start_frame = start_frame
+        self.save_hq_pics = save_hq_pics
         self.cap = cv2.VideoCapture(self.video_path)
         self.total_frames = int(
             self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -914,6 +924,7 @@ class ThirdWindow(QWidget):
             self.data["start_frame"] = self.video_screen.start_frame
             self.data["text_areas"] = self.video_screen.text_areas
             self.data["cv2_cap_obj"] = self.cap
+            self.data["save_hq_pics"] = self.save_hq_pics
             self.data_signal.emit(self.data)
             self.close()
         else:
@@ -922,7 +933,7 @@ class ThirdWindow(QWidget):
             )
 
     def closeEvent(self, event):
-        if event.spontaneous(): # If triggered by the user
+        if event.spontaneous():  # If triggered by the user
             self.video_screen.thread.stop()
             reply = QMessageBox.question(
                 self,

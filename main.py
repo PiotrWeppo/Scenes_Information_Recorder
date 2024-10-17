@@ -50,6 +50,7 @@ def main() -> None:
     text_area = gui_data["text_areas"]["VFX/ADR"]
     tc_area = gui_data["text_areas"]["TC"]
     cv2_cap_obj = gui_data["cv2_cap_obj"]
+    save_hq_pics = gui_data["save_hq_pics"]
     start_logging_info(video, files_path)
     if gui_data["start_frame"] is not None:
         start_time = gui_data["start_frame"]
@@ -103,7 +104,7 @@ def main() -> None:
     logging.debug(f"final_text_dict=\n{final_text_dict}\n")
 
     df = create_dataframe(final_text_dict)
-    create_xlsx_file(df, video, files_path)
+    create_xlsx_file(df, video, files_path, save_hq_pics)
     delete_folder(f"{files_path}/temp")
     delete_logging_file(video, files_path)
 
