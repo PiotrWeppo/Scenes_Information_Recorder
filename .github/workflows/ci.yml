@@ -27,8 +27,14 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Run tests
-      run: |
-        if [ -f tests ]; then pytest; fi
+      uses: pavelzw/pytest-action@v2
+      with:
+        verbose: true
+        emoji: true
+        job-summary: true
+        custom-arguments: '-q'
+        click-to-expand: true
+        report-title: 'Test Report'
 
     - name: Run Black
       uses: psf/black@stable
