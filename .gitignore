@@ -27,6 +27,8 @@ bin-release/
 !images/**
 !resources/videos/
 !resources/videos/**
+!.github/
+!.github/workflows/
 
 #Pipenv files
 Pipfile
