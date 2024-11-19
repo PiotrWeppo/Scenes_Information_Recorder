@@ -35,7 +35,10 @@ def create_dataframe(final_dict: dict) -> pd.DataFrame:
 
 
 def create_xlsx_file(
-    dataframe: pd.DataFrame, video_path: str, file_save_dir: str
+    dataframe: pd.DataFrame,
+    video_path: str,
+    file_save_dir: str,
+    save_hq_pics: bool,
 ) -> None:
     """Create an Excel file from a DataFrame. Insert pictures in the Excel file.
 
@@ -63,7 +66,8 @@ def create_xlsx_file(
     pic_row = 2
     dataframe_length = len(dataframe.index)
     worksheet.set_column_pixels(first_col=1, last_col=1, width=1920 * 0.25)
-    create_folder(f"{file_save_dir}/'{full_file_name}' VFX Pictures")
+    if save_hq_pics:
+        create_folder(f"{file_save_dir}/'{full_file_name}' VFX Pictures")
     for index in range(dataframe_length):
         worksheet.set_row_pixels(row=pic_row - 1, height=1080 * 0.25)
         if dataframe.iloc[index]["TEXT"].startswith("VFX"):
@@ -71,14 +75,15 @@ def create_xlsx_file(
                 f"B{pic_row}",
                 f"{file_save_dir}/temp/thumbnails/{dataframe.iloc[index]['FRAME IN']}.png",
             )
-            source_path = (
-                f"{file_save_dir}/temp/first_last_scene_frames/{dataframe.iloc[index]['FRAME IN']}.png"
-            )
-            destination_path = (
-                f"{file_save_dir}/'{full_file_name}' VFX"
-                f" Pictures/{dataframe.iloc[index]['FRAME IN']}.png"
-            )
-            copy_picture_from_to_folder(source_path, destination_path)
+            if save_hq_pics:
+                source_path = (
+                    f"{file_save_dir}/temp/first_last_scene_frames/{dataframe.iloc[index]['FRAME IN']}.png"
+                )
+                destination_path = (
+                    f"{file_save_dir}/'{full_file_name}' VFX"
+                    f" Pictures/{dataframe.iloc[index]['FRAME IN']}.png"
+                )
+                copy_picture_from_to_folder(source_path, destination_path)
         pic_row += 1
 
     worksheet.autofit()
